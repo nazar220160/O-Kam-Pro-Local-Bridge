@@ -73,7 +73,7 @@ python -m okam_bridge api --port 8098
 
 The API serves JSON and API documentation. The dashboard is the separate `web/` service. Credential decoding is built in; no `--credential-client` argument is needed. See [deployment](docs/deployment.md) for access protection and frontend configuration, and [API examples](docs/api.md) for login, video and controls.
 
-Publication credentials are separate from account, camera and browser-player credentials and are revealed only on explicit request. Closing the dashboard tab keeps an enabled publication running; logout, camera disconnect, disabling publication or API restart revokes it. After restart, sign in and enable it again.
+Publication credentials are separate from account, camera and browser-player credentials and appear automatically in selectable text fields when publication is enabled. Closing the dashboard tab keeps an enabled publication running; logout, camera disconnect, disabling publication or API restart revokes it. After restart, sign in and enable it again.
 
 ## Project
 

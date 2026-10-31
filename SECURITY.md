@@ -14,7 +14,7 @@ This bridge handles account credentials, native camera passwords, live video, pe
 
 ## Bridge publication credentials
 
-Optional RTSP/ONVIF publication has its own generated password, revealed only by an explicit authenticated POST. It is separate from camera, account and browser-player credentials. Shared addresses contain no embedded password. Treat the revealed value as a secret and enter it in the player/NVR’s separate credential fields.
+Optional RTSP/ONVIF publication has its own generated password, retrieved through a separate authenticated POST and displayed automatically in plaintext in the selected publication panel. It is separate from camera, account and browser-player credentials. Shared addresses contain no embedded password. Treat the revealed value as a secret and enter it in the player/NVR’s separate credential fields.
 
 MediaMTX uses a separate internal publisher credential and asks the API to authorize exact publication paths and read/publish roles. RTSP uses TCP with Basic authentication; the ONVIF facade and snapshots are also sensitive LAN services. Keep them on a trusted LAN or VPN; retain HTTPS protection for dashboard/API access. They do not inherit browser authentication.
 

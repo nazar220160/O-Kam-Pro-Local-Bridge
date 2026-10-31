@@ -70,8 +70,7 @@ function setup() {
   };
 }
 const flush = async () => {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let i=0; i<6; i++) await Promise.resolve();
 };
 (async () => {
   let e = setup();
@@ -139,20 +138,23 @@ const flush = async () => {
     !JSON.stringify(e.get("bridge-export-profiles")).includes("SECRET"),
     "credential URLs excluded",
   );
-  const reveal = e.get("bridge-export-credentials").onclick();
   assert.equal(e.requests.at(-1).args[0], "/api/cameras/A/export/credentials");
   e.requests.at(-1).resolve({ username: "bridge", password: "TEMPORARY" });
-  await reveal;
+  await flush();
   assert.equal(e.get("bridge-export-password").value, "TEMPORARY");
-  e.timers.at(-1)();
-  assert.equal(e.get("bridge-export-password").value, "");
+  assert.equal(e.get("bridge-export-secret").hidden, false);
+  assert.equal(e.timers.length, 0, "credentials have no hiding timer");
+  e.intervals[0]();
+  e.requests.at(-1).resolve({enabled:true,state:"streaming",profiles:[]});
+  await flush();
+  assert.equal(e.get("bridge-export-password").value, "TEMPORARY", "polling keeps credentials visible");
   e.get("bridge-export-onvif").checked = true;
   e.get("bridge-export-rtsp").checked = false;
   e.get("bridge-export-onvif").onchange();
   assert(e.get("bridge-export-rtsp").checked);
   e.run("S.cameras[0].viewable=false;renderDetails()");
   assert(e.get("bridge-export-enable").disabled);
-  assert(e.get("bridge-export-credentials").disabled);
+  assert.equal(e.get("bridge-export-password").value, "");
   assert(
     e.requests.every(
       (r) => r.args[1] !== "POST" || r.args[0].endsWith("/credentials"),
@@ -164,11 +166,10 @@ const flush = async () => {
     .shift()
     .resolve({ enabled: true, state: "streaming", profiles: [] });
   await flush();
-  const pendingSecret = e.get("bridge-export-credentials").onclick();
   const secretReply = e.requests.shift();
   e.run("S.selected='B';renderDetails();S.selected='A';renderDetails()");
   secretReply.resolve({ username: "bridge", password: "STALE-SECRET" });
-  await pendingSecret;
+  await flush();
   assert.equal(
     e.get("bridge-export-password").value,
     "",
@@ -177,11 +178,10 @@ const flush = async () => {
   const freshStatus = e.requests.at(-1);
   freshStatus.resolve({ enabled: true, state: "streaming", profiles: [] });
   await flush();
-  const pendingLogout = e.get("bridge-export-credentials").onclick();
   const logoutReply = e.requests.at(-1);
   e.run("showLogin()");
   logoutReply.resolve({ username: "bridge", password: "LOGGED-OUT" });
-  await pendingLogout;
+  await flush();
   assert.equal(e.get("bridge-export-password").value, "");
   assert(e.get("bridge-export-secret").hidden);
   e = setup();
@@ -195,7 +195,7 @@ const flush = async () => {
   assert.equal(e.requests.length, 1);
   assert.equal(e.requests[0].args.length, 1, "visible poll reads only");
   console.log(
-    "Frontend exports passed: explicit writes, selection races, credential isolation and expiry, readiness",
+    "Frontend exports passed: explicit writes, selection races, automatic visible credentials and account isolation, readiness",
   );
 })().catch((error) => {
   console.error(error);

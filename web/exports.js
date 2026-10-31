@@ -10,7 +10,7 @@
     busy: false,
     loading: false,
     viewable: false,
-    secretTimer: null,
+    credentialId: undefined,
   };
   const el = (name) => $("bridge-export-" + name);
   const camera = () => S.cameras.find((c) => c.id === S.selected);
@@ -26,7 +26,7 @@
     E.generation === c.generation;
   const path = (c) => "/api/cameras/" + encodeURIComponent(c.id) + "/export";
   function clearSecret() {
-    clearTimeout(E.secretTimer);
+    E.credentialId = undefined;
     el("username").value = el("password").value = "";
     el("secret").hidden = true;
   }
@@ -49,7 +49,6 @@
       !ready || E.busy || E.loading || unavailable || !el("rtsp").checked;
     el("disable").disabled = !enabled || E.busy || E.loading;
     el("refresh").disabled = !S.username || !c || E.busy || E.loading;
-    el("credentials").disabled = !ready || !enabled || E.busy || E.loading;
     el("host").disabled = el("rtsp").disabled = el("onvif").disabled = E.busy;
     el("use-host").disabled = E.busy;
   }
@@ -93,8 +92,8 @@
     el("profiles").append(group);
   }
   function showStatus(data) {
-    // Keep only non-secret state. Credentials are requested by a separate explicit action.
-    E.data = { enabled: !!data.enabled, available: data.available !== false };
+    // Credentials stay in the selected publication fields, outside catalog state.
+    E.data = { enabled: !!data.enabled, available: data.available !== false, export_id: data.export_id };
     const states = {
       starting: "Запускается",
       streaming: "Передаётся видео",
@@ -145,7 +144,10 @@
     render();
     try {
       const data = await api(path(c));
-      if (current(c) && request === E.request) showStatus(data);
+      if (current(c) && request === E.request) {
+        showStatus(data);
+        await showCredentials(data, c);
+      }
     } catch (error) {
       if (current(c) && request === E.request)
         el("status").textContent = friendly(error.code);
@@ -211,7 +213,10 @@
     render();
     try {
       const data = await api(path(c), "POST", payload);
-      if (current(c)) showStatus(data);
+      if (current(c)) {
+        showStatus(data);
+        await showCredentials(data, c);
+      }
     } catch (error) {
       if (current(c)) el("status").textContent = friendly(error.code);
     } finally {
@@ -235,29 +240,17 @@
   el("use-host").onclick = () => {
     el("host").value = location.hostname;
   };
-  el("hide").onclick = clearSecret;
-  el("credentials").onclick = async () => {
-    if (E.busy || E.loading || !camera()?.viewable || !E.data?.enabled) return;
-    const c = context();
-    E.busy = true;
+  async function showCredentials(publication, c) {
+    if (!publication.enabled) return;
+    if (el("password").value && E.credentialId === publication.export_id) return;
     clearSecret();
-    render();
-    try {
-      const data = await api(path(c) + "/credentials", "POST", {});
-      if (!current(c) || !camera()?.viewable) return;
-      el("username").value = data.username;
-      el("password").value = data.password;
-      el("secret").hidden = false;
-      E.secretTimer = setTimeout(clearSecret, 30000);
-    } catch (error) {
-      if (current(c)) el("status").textContent = friendly(error.code);
-    } finally {
-      if (current(c)) {
-        E.busy = false;
-        render();
-      }
-    }
-  };
+    const data = await api(path(c) + "/credentials", "POST", {});
+    if (!current(c) || !E.data?.enabled || E.data.export_id !== publication.export_id) return;
+    el("username").value = data.username;
+    el("password").value = data.password;
+    E.credentialId = publication.export_id;
+    el("secret").hidden = false;
+  }
   for (const name of ["username", "password"])
     el("copy-" + name).onclick = async () => {
       const field = el(name);
@@ -282,8 +275,7 @@
     return result;
   };
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) clearSecret();
-    else {
+    if (!document.hidden) {
       sync();
       void refresh();
     }

@@ -2,6 +2,8 @@
 
 ## 0.8.1
 
+- Show publication username/password automatically as selectable plaintext fields; remove reveal/hide buttons and the hiding timer. Clear fields when changing account/camera or disabling publication.
+
 - Decode supported encrypted camera credentials directly in the bridge. Remove the required official PC client and secrets mount from Compose and the macOS launcher. Keep an explicit legacy client-file override for alternate protocols.
 - Make the dashboard reachable on LAN by default, while keeping the protected API on loopback. Explicit WEB_LISTEN overrides still apply.
 - Update clean-start documentation and add no-file decoder/deployment regression coverage.

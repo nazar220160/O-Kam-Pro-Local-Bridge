@@ -120,6 +120,6 @@ All routes require the owning account cookie or Bearer session; browser-player c
 - `GET /api/cameras/{id}/archive/sd_records?date=YYYYMMDD`: bounded SD index; use a returned `id` rather than constructing a filename.
 - `POST /api/cameras/{id}/archive` with `{"action":"sd_import","source_id":"RETURNED_ID","duration":60}` returns a job (HTTP 202). Poll archive status until completed/error/cancelled. Duration is 1–300 seconds. The selected date must first be listed within this account session.
 - `GET /api/cameras/{id}/archive/file/{token}`: authenticated MKV download. Supports a single `Range: bytes=START-END` or `bytes=START-` request (206); unsupported/invalid ranges return 416.
-- `POST /api/cameras/{id}/archive` with `{"action":"replay","token":"RECORDING_TOKEN"}` returns a credential-free RTSP URI for normal forward clip replay. Use explicitly revealed publication credentials in the player.
+- `POST /api/cameras/{id}/archive` with `{"action":"replay","token":"RECORDING_TOKEN"}` returns a credential-free RTSP URI for normal forward clip replay. Use the publication credentials displayed in the dashboard in the player.
 
 The full constraints and lifecycle are described in [bridge exports](bridge-exports.md#server-and-sd-archives). SD cache and server files are separate sources in metadata, but both are exposed to ONVIF Recording/Search/Replay once complete. Recording settings are bridge storage policy; they do not change the camera SD recording configuration.

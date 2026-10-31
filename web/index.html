@@ -548,19 +548,17 @@ get_status.cgi?</textarea
                 <button id="bridge-export-enable" class="primary" type="button" disabled>Включить / применить</button>
                 <button id="bridge-export-disable" class="ghost" type="button" disabled>Выключить экспорт</button>
                 <button id="bridge-export-refresh" class="ghost" type="button" disabled>Обновить статус</button>
-                <button id="bridge-export-credentials" class="ghost" type="button" disabled>Показать данные входа моста</button>
               </div>
               <p id="bridge-export-status" class="muted" role="status">Выберите камеру.</p>
               <div id="bridge-export-profiles" class="bridge-export-profiles"></div>
               <div id="bridge-export-secret" class="bridge-export-secret" hidden>
-                <p class="note">Отдельные данные входа моста. Это не пароль камеры или аккаунта. Поля очищаются через 30 секунд.</p>
+                <p class="note">Отдельные данные входа моста. Выделите и скопируйте логин и пароль для плеера или NVR.</p>
                 <label for="bridge-export-username">Логин моста</label>
                 <input id="bridge-export-username" readonly autocomplete="off" />
                 <button id="bridge-export-copy-username" class="text-button" type="button">Копировать логин</button>
-                <label for="bridge-export-password">Временный пароль моста</label>
-                <input id="bridge-export-password" type="password" readonly autocomplete="off" />
+                <label for="bridge-export-password">Пароль моста</label>
+                <input id="bridge-export-password" type="text" readonly autocomplete="off" />
                 <button id="bridge-export-copy-password" class="text-button" type="button">Копировать пароль</button>
-                <button id="bridge-export-hide" class="ghost" type="button">Скрыть данные</button>
               </div>
               <p class="note">После закрытия вкладки экспорт продолжает работать. Выход из аккаунта или отключение камеры выключает его. После перезапуска сервера включите экспорт заново. ONVIF моста не сертифицирован; совместимость зависит от NVR. Поддерживаемые PTZ-команды, события и чтение архива зависят от камеры. Абсолютное позиционирование и обратное воспроизведение не поддерживаются.</p>
             </section>

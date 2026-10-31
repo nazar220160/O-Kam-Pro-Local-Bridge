@@ -13,7 +13,7 @@ Camera encoder configuration writes, absolute/relative PTZ positioning, ONVIF re
 3. Open **ONVIF / RTSP → ONVIF / RTSP от моста**. Leave RTSP selected; select ONVIF if needed.
 4. Optionally enter the bridge's LAN host name or IPv4 address reachable by the player. Omit the scheme and port. Automatic selection uses the interface toward the camera; override it if your NVR uses a different route.
 5. Click **Включить / применить**. Copy the returned device address or the RTSP address for the required lens.
-6. Click **Показать данные входа моста** only when ready to configure your client. Enter that generated username/password separately in the client.
+6. The generated username/password appear automatically as selectable text fields. Copy them into the separate credential fields in your client.
 
 Ordinary status and copied addresses contain no embedded password. Publication credentials are not the camera password, O-Kam account credentials or browser-player credentials. Reapplying configuration replaces the publication ID and credentials; update clients afterwards.
 
