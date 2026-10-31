@@ -13,4 +13,4 @@ Checks performed on 2026-10-31:
 - Independent code review found a metadata-refresh reset issue; a regression test reproduced it and passed after the fix.
 - Tracked source was checked for private configuration, captures, proprietary executables and known local decoder/config secrets. None were included.
 
-CI repeats Python, frontend, schema and Compose checks on future changes. A passing CI run does not establish compatibility with all physical cameras.
+The initial GitHub Actions run did not start its jobs: GitHub reported an account billing/spending-limit restriction. No hosted CI pass is claimed. The workflow is configured to repeat Python, frontend, schema and Compose checks when runners are available. A passing CI run does not establish compatibility with all physical cameras.
