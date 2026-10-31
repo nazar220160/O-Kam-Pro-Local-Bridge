@@ -86,6 +86,20 @@ class StateTests(unittest.TestCase):
         self.assertEqual(manager.login("first", "valid-test"), token)
         self.assertIs(manager.get(token), workspace)
 
+    def test_cloud_source_is_restored_and_overrides_stale_cached_lan_mode(self):
+        manager, exports, state = self.system()
+        token, workspace, cid = self.connect(manager)
+        with workspace.lock:
+            workspace.records[cid].connection_mode = "cloud"
+            workspace.records[cid].cached_config["connection_mode"] = "lan"
+        state.checkpoint()
+        manager, exports, state = self.restart()
+        workspace = manager.get(token)
+        wait_for(lambda: cid in workspace.cameras)
+        self.assertEqual(workspace.records[cid].connection_mode, "cloud")
+        self.assertEqual(workspace.cameras[cid].config["connection_mode"], "cloud")
+        self.assertEqual(workspace.records[cid].ip, "192.168.20.10")
+
     def test_logout_is_durable_and_does_not_revive_a_session(self):
         manager, exports, state = self.system()
         token, workspace, cid = self.connect(manager)

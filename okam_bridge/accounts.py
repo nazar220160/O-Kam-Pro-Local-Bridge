@@ -187,7 +187,12 @@ class LANBackend:
         }
         if encrypted:
             config["account_token"] = record.account_token
-        known_ip = ip or record.account_metadata.get("lan_ip")
+        config["connection_mode"] = record.connection_mode
+        if record.connection_mode == "cloud":
+            if record.ip:
+                config["ip"] = record.ip
+            return config
+        known_ip = ip or record.ip or record.account_metadata.get("lan_ip")
         if known_ip:
             config["ip"] = private_ipv4(known_ip)
         else:
@@ -212,6 +217,7 @@ class Record:
     ip: str | None = None
     substream: int = 1
     quality: str | None = None
+    connection_mode: str = "lan"
     wanted: bool = False
     cached_config: dict | None = field(default=None, repr=False)
     settings_lock: object = field(default_factory=threading.RLock, repr=False)
@@ -312,6 +318,8 @@ class AccountWorkspace:
                         "ip": r.ip,
                         "substream": r.substream,
                         "quality": r.quality,
+                        "connection_mode": r.connection_mode,
+                        "transport": live.get("transport", {}),
                         "viewable": r.id in self.cameras,
                         "capability": (
                             "native"
@@ -333,7 +341,11 @@ class AccountWorkspace:
                 )
             return result
 
-    def apply_stream(self, camera_id, ip=None, substream=1, quality=None):
+    def apply_stream(
+        self, camera_id, ip=None, substream=1, quality=None, connection_mode=None
+    ):
+        if connection_mode is not None and connection_mode not in ("lan", "cloud"):
+            raise WorkspaceError("invalid_connection_mode")
         if quality is not None and (
             not isinstance(quality, str) or quality not in ("high", "medium", "low")
         ):
@@ -346,6 +358,7 @@ class AccountWorkspace:
             if self.closed:
                 raise WorkspaceError("session_expired")
             record = self.records[camera_id]
+            connection_mode = connection_mode or record.connection_mode
         with record.settings_lock:
             with self.lock:
                 camera = self.cameras.get(camera_id)
@@ -353,12 +366,14 @@ class AccountWorkspace:
                     camera and record.instance is camera and record.phase == "ready"
                 )
                 unchanged_route = (
-                    ip is None or ip == record.ip
-                ) and substream == record.substream
+                    (connection_mode == "cloud" or ip is None or ip == record.ip)
+                    and substream == record.substream
+                    and connection_mode == record.connection_mode
+                )
                 generation = record.generation
                 previous = record.quality
             if not live or not unchanged_route:
-                self.connect(camera_id, ip, substream, quality)
+                self.connect(camera_id, ip, substream, quality, connection_mode)
                 return {"ok": True, "mode": "reconnect", "state": "preparing"}
             if quality != previous and quality is not None:
                 try:
@@ -383,7 +398,11 @@ class AccountWorkspace:
                 record.quality = quality
             return {"ok": True, "mode": "live", "state": "streaming"}
 
-    def connect(self, camera_id, ip=None, substream=1, quality=None):
+    def connect(
+        self, camera_id, ip=None, substream=1, quality=None, connection_mode="lan"
+    ):
+        if connection_mode not in ("lan", "cloud"):
+            raise WorkspaceError("invalid_connection_mode")
         if quality is not None and (
             not isinstance(quality, str) or quality not in ("high", "medium", "low")
         ):
@@ -409,8 +428,9 @@ class AccountWorkspace:
             r.phase = "preparing"
             r.error = None
             r.substream = substream
-            r.ip = ip
+            r.ip = ip or r.ip
             r.quality = quality
+            r.connection_mode = connection_mode
         if old:
             old.stop()
         threading.Thread(
@@ -431,13 +451,14 @@ class AccountWorkspace:
                 if prepared
                 else self.backend.prepare(r, self.account_id, ip, substream)
             )
+            config["connection_mode"] = r.connection_mode
             if quality is not None:
                 config["quality"] = quality
             with self.lock:
                 if self.closed or r.generation != generation:
                     return
                 r.phase = "starting"
-                r.ip = config["ip"]
+                r.ip = config.get("ip", r.ip)
                 r.cached_config = dict(config)
                 camera = self.backend.camera(config)
                 r.instance = camera
@@ -481,6 +502,8 @@ class AccountWorkspace:
             "camera_unavailable",
             "connection_failed",
             "camera_unavailable_or_video_interrupted",
+            "cloud_unavailable_or_video_interrupted",
+            "cloud_connection_failed",
             "password_decoder_required",
             "encrypted_credentials_invalid",
             "credential_client_invalid",

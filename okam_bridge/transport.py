@@ -1,4 +1,4 @@
-"""LAN-only encrypted PPPP discovery; never opens a relay session."""
+"""Encrypted CS2/PPPP sessions over LAN or the vendor's cloud relay."""
 
 import socket
 import time
@@ -38,6 +38,23 @@ class LANSession(CS2Session):
                 self._count("data_packets_deferred")
                 return
         super()._handle_data(packet)
+
+
+class CloudSession(LANSession):
+    """Vendor relay negotiation with the same reliable media handling as LAN.
+
+    Cancellation also applies during the 55-second rendezvous and subsequent
+    authentication reads, before Camera can publish the connected session.
+    """
+
+    def __init__(self, *args, cancel=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cancel = cancel
+
+    def _receive_clear(self):
+        if self.cancel is not None and self.cancel.is_set():
+            raise CS2Error("camera_stop_requested")
+        return super()._receive_clear()
 
 
 class CameraAuthError(CS2Error):
@@ -100,6 +117,38 @@ def connect_lan(camera, timeout=6.0):
     except BaseException:
         session.close()
         raise
+
+
+def connect_cloud(camera, timeout=55.0, cancel=None):
+    """Find a relay by camera UID; a camera's LAN IP is never a relay address."""
+    session = CloudSession(
+        camera["transport_uid"],
+        camera["service_parameter"],
+        prefer_relay=True,
+        cancel=cancel,
+    )
+    try:
+        session.connect(timeout=timeout)
+        # Keep the explicit cloud button honest: never silently use LAN or a
+        # directly punched camera peer when the user requested a vendor relay.
+        if session.connect_path != "relay":
+            raise CS2Error("cloud_connection_failed")
+        return session
+    except (CS2Error, OSError):
+        session.close()
+        raise CS2Error("cloud_connection_failed") from None
+    except BaseException:
+        session.close()
+        raise
+
+
+def connect_camera(camera, cancel=None):
+    mode = camera.get("connection_mode", "lan")
+    if mode == "lan":
+        return connect_lan(camera)
+    if mode == "cloud":
+        return connect_cloud(camera, cancel=cancel)
+    raise ValueError("Invalid camera connection mode")
 
 
 def make_request(path, user, password, compatibility_password=None, account_id=None):

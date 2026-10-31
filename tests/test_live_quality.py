@@ -59,7 +59,7 @@ class LiveQualityTests(unittest.TestCase):
                 self.w.apply_stream(self.cid, "192.168.20.11", 1, "low")["mode"],
                 "reconnect",
             )
-            connect.assert_called_once_with(self.cid, "192.168.20.11", 1, "low")
+            connect.assert_called_once_with(self.cid, "192.168.20.11", 1, "low", "lan")
         self.camera.control.assert_not_called()
 
     def test_invalid_quality_never_reaches_camera(self):

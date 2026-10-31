@@ -9,6 +9,7 @@ const S = {
   ipDirty: false,
   connected: false,
   epoch: 0,
+  pendingConnect: null,
 };
 function uiPreference(update) {
   if (!S.username) return {};
@@ -46,6 +47,11 @@ const errors = {
   invalid_native_command: "Нужна CGI-команда без IP и данных авторизации.",
   unknown_control: "Неизвестная команда управления.",
   invalid_quality: "Выберите доступное качество видео.",
+  invalid_connection_mode: "Выберите локальное подключение или O-Kam Pro.",
+  cloud_connection_failed:
+    "Не удалось связаться с камерой через O-Kam Pro. Проверьте интернет на сервере и у камеры; облачный маршрут может быть временно недоступен.",
+  cloud_unavailable_or_video_interrupted:
+    "Связь через O-Kam Pro недоступна или видео прервалось. Проверьте интернет на сервере и у камеры; можно повторить попытку или открыть локальное видео.",
   password_decoder_required:
     "Обновите мост: расшифровка пароля камеры встроена в актуальную версию.",
   crypto_dependency_required:
@@ -139,6 +145,7 @@ function showLogin() {
   S.username = null;
   S.cameras = [];
   S.selected = null;
+  S.pendingConnect = null;
   $("workspace").hidden = true;
   $("login-screen").hidden = false;
   $("password").value = "";
@@ -154,7 +161,20 @@ function showWorkspace(info) {
   const tab = uiPreference().tab;
   if (["video", "controls", "services", "metadata"].includes(tab)) activateTab(tab);
 }
+function connectionMode(c) {
+  return c.connection_mode || c.transport?.mode || "lan";
+}
 function statusText(c) {
+  if (connectionMode(c) === "cloud") {
+    if (["preparing", "resolving", "discovering"].includes(c.state))
+      return "Готовим подключение через O-Kam Pro…";
+    if (["starting", "connecting"].includes(c.state))
+      return "Ждём связь через O-Kam Pro…";
+    if (c.state === "streaming")
+      return c.transport?.path === "relay"
+        ? "Идёт видео через сервер O-Kam Pro"
+        : "Идёт видео · O-Kam Pro";
+  }
   return labels[c.state] || c.state || "Не подключена";
 }
 function dotClass(c) {
@@ -263,18 +283,28 @@ function renderDetails() {
   $("camera-title").textContent = c.name;
   $("camera-state").textContent = statusText(c);
   $("state-dot").className = "dot " + dotClass(c);
-  const busy = ["preparing", "resolving", "discovering", "starting"].includes(
-    c.state,
-  );
+  const pending = S.pendingConnect?.id === c.id && S.pendingConnect.epoch === S.epoch;
+  const busy = pending || ["preparing", "resolving", "discovering", "starting"].includes(c.state);
+  const cloud = connectionMode(c) === "cloud";
+  const connectingCloud = pending ? S.pendingConnect.mode === "cloud" : cloud;
   $("connect").disabled = busy;
+  $("connect-cloud").disabled = busy;
   $("apply-stream").disabled = busy;
   $("substream").disabled = busy;
   $("quality").disabled = busy;
-  $("connect").textContent = busy
+  $("connect").textContent = busy && !connectingCloud
     ? "Подключение…"
-    : c.viewable
+    : c.viewable && !cloud
       ? "Переподключить"
       : "Открыть видео";
+  $("connect-cloud").textContent = busy && connectingCloud
+    ? "Подключение к O-Kam…"
+    : c.viewable && cloud
+      ? "Переподключить O-Kam Pro"
+      : "Через O-Kam Pro";
+  $("connection-info").textContent = connectingCloud
+    ? "Источник: O-Kam Pro. Локальный IP не используется. Ожидание первого кадра может занимать до 100 секунд."
+    : "Источник: локальная сеть. «Через O-Kam Pro» использует интернет и серверы производителя вместо локального IP.";
   $("disconnect").disabled = c.state === "disconnected";
   $("camera-error").hidden = !c.error;
   $("camera-error").textContent = c.error ? friendly(c.error) : "";
@@ -300,6 +330,9 @@ function renderDetails() {
     grid = $("camera-metadata");
   grid.replaceChildren();
   info(grid, "Протокол", c.protocol || "Определяется при подключении");
+  info(grid, "Источник подключения", cloud ? "O-Kam Pro" : "Локальная сеть");
+  if (c.transport?.path)
+    info(grid, "Маршрут видео", ({ relay: "Ретранслятор O-Kam Pro", direct: "Прямое P2P-соединение", lan: "Локальная сеть", LAN: "Локальная сеть" })[c.transport.path] || c.transport.path);
   info(grid, "Локальный IP", c.ip || a.lan_ip || "Не передан аккаунтом");
   info(grid, "Модель / тип", a.model || m.camera_type || a.device_type);
   info(grid, "Прошивка", m.firmware || a.firmware);
@@ -337,7 +370,7 @@ function renderDetails() {
     ? "Линзы · " + c.lenses.length
     : "Линзы";
   $("view-hint").hidden = !!c.viewable;
-  if (!c.viewable) {
+  if (!c.viewable || pending) {
     stopFeeds();
     return;
   }
@@ -579,31 +612,40 @@ $("account-form").onsubmit = async (e) => {
 };
 $("search").oninput = renderList;
 $("camera-ip").oninput = () => (S.ipDirty = true);
-$("connect").onclick = async () => {
+async function openCamera(connection_mode) {
   if (!S.selected) return;
+  const id = S.selected, epoch = S.epoch;
   stopFeeds();
-  $("connect").disabled = true;
-  $("apply-stream").disabled = true;
+  const pending = { id, epoch, mode: connection_mode };
+  S.pendingConnect = pending;
+  renderDetails();
   try {
-    await api("/api/cameras/" + S.selected + "/connect", "POST", {
-      ip: $("camera-ip").value.trim() || null,
+    await api("/api/cameras/" + encodeURIComponent(id) + "/connect", "POST", {
+      connection_mode,
+      ip: connection_mode === "lan" ? $("camera-ip").value.trim() || null : null,
       substream: Number($("substream").value),
       quality: $("quality").value || null,
     });
+    if (epoch !== S.epoch) return;
     await fetchCatalog();
   } catch (e) {
-    toast(friendly(e.code));
+    if (epoch === S.epoch && S.selected === id) toast(friendly(e.code));
   } finally {
-    renderDetails();
+    if (S.pendingConnect === pending) S.pendingConnect = null;
+    if (epoch === S.epoch && S.selected === id) renderDetails();
   }
-};
+}
+$("connect").onclick = () => openCamera("lan");
+$("connect-cloud").onclick = () => openCamera("cloud");
 $("apply-stream").onclick = async () => {
   if (!S.selected) return;
   const id = S.selected, epoch = S.epoch;
-  $("apply-stream").disabled = $("connect").disabled = true;
+  const mode = connectionMode(S.cameras.find(c => c.id === id) || {});
+  $("apply-stream").disabled = $("connect").disabled = $("connect-cloud").disabled = true;
   try {
     const result = await api("/api/cameras/" + encodeURIComponent(id) + "/stream", "POST", {
-      ip: $("camera-ip").value.trim() || null,
+      connection_mode: mode,
+      ip: mode === "lan" ? $("camera-ip").value.trim() || null : null,
       substream: Number($("substream").value),
       quality: $("quality").value || null,
     });

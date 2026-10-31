@@ -18,7 +18,7 @@ import subprocess
 import threading
 import time
 from .transport import (
-    connect_lan,
+    connect_camera,
     authenticate,
     authorize_account,
     set_video_quality,
@@ -380,6 +380,10 @@ class Camera:
                 "lenses": sorted(self.observed_lenses),
                 "last_frame": self.last_frame,
                 "connections": self.connections,
+                "transport": {
+                    "mode": self.config.get("connection_mode", "lan"),
+                    "path": getattr(self.session, "connect_path", None),
+                },
                 "metadata": dict(self.metadata),
                 "audio": {
                     "available": self.audio_available,
@@ -449,7 +453,8 @@ class Camera:
             if self.thread is None or not self.thread.is_alive():
                 self.thread = threading.Thread(target=self._run, daemon=True)
                 self.thread.start()
-        deadline = time.monotonic() + 45
+        initial_wait = 100 if self.config.get("connection_mode") == "cloud" else 45
+        deadline = time.monotonic() + initial_wait
         try:
             while not self.stop_event.is_set() and not (cancel and cancel.is_set()):
                 data = s.get(0.25 if cancel is not None else 5)
@@ -493,8 +498,10 @@ class Camera:
             try:
                 with self.lock:
                     self.state = "connecting"
-                session = connect_lan(self.config)
+                session = connect_camera(self.config, cancel=self.stop_event)
                 self.session = session
+                if self.stop_event.is_set():
+                    break
                 user, password = authenticate(session, self.config)
                 with self.lock:
                     self.metadata = dict(getattr(session, "camera_metadata", {}))
@@ -621,7 +628,11 @@ class Camera:
                     self.last_error = "camera_password_rejected"
             except (CS2Error, OSError, ValueError):
                 with self.lock:
-                    self.last_error = "camera_unavailable_or_video_interrupted"
+                    self.last_error = (
+                        "cloud_unavailable_or_video_interrupted"
+                        if self.config.get("connection_mode") == "cloud"
+                        else "camera_unavailable_or_video_interrupted"
+                    )
             finally:
                 if session:
                     session.close()

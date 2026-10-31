@@ -950,6 +950,10 @@ main {
 .head-actions button {
   font-size: 12px;
 }
+.source-note {
+  margin: -10px 0 22px;
+  max-width: 850px;
+}
 .box {
   border-radius: 12px;
   background: linear-gradient(130deg, #1d231c, #191e19);

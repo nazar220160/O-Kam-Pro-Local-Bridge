@@ -1,4 +1,4 @@
-# HTTP API · v0.10.1
+# HTTP API · v0.11.0
 
 The Python API is independent of the dashboard. With Compose, use `http://localhost:8080` for both the dashboard and proxied API. For a native process started with `python -m okam_bridge api --port 8098`, use `http://localhost:8098`.
 
@@ -34,7 +34,8 @@ All paths below are relative to the service origin. Camera IDs are opaque values
 | GET | `/api/account/player` | Temporary media-only Basic credentials. |
 | GET | `/api/cameras` | Catalog; listing does not start video. |
 | GET | `/api/cameras/{camera_id}` | State, lens information and errors. |
-| POST | `/api/cameras/{camera_id}/connect` | Start connection asynchronously. |
+| POST | `/api/cameras/{camera_id}/connect` | Start LAN or vendor-relay connection asynchronously. |
+| POST | `/api/cameras/{camera_id}/stream` | Apply quality in place or reconnect when the route changes. |
 | POST | `/api/cameras/{camera_id}/disconnect` | Close selected connection. |
 | GET | `/api/cameras/{camera_id}/details` | Redacted metadata and capability evidence. |
 | GET | `/api/cameras/{camera_id}/services` | Fixed native TCP service-port probes. |
@@ -60,7 +61,22 @@ curl -b session.cookies -H 'Content-Type: application/json' \
 curl -b session.cookies http://localhost:8080/api/cameras/CAMERA_ID
 ```
 
-A `202` response means connection was scheduled. Poll until `viewable` is `true` or an error appears. Optional `ip` specifies a private IPv4 address; otherwise the bridge uses the account LAN address and then UID discovery. The `substream` selector accepts `0`, `1` or `2`. The independent `quality` selector accepts `high`, `medium`, `low` or `null`; null leaves camera quality unchanged. Native quality codes are 1, 2 and 4 respectively.
+A `202` response means connection was scheduled. Poll until `viewable` is `true` or an error appears. `connection_mode` accepts `lan` (the default for `/connect`) or `cloud`:
+
+- `lan`: optional `ip` specifies a private IPv4 address; otherwise the bridge keeps the saved LAN hint, then uses the account LAN address or UID discovery.
+- `cloud`: resolve the camera UID through the vendor directory and require a relay session. No camera IP or LAN discovery is needed. An existing LAN address is retained as a hint for later local use, not replaced with a relay address. This mode does not silently fall back to LAN.
+
+For example:
+
+```sh
+curl -b session.cookies -H 'Content-Type: application/json' \
+  -d '{"connection_mode":"cloud","quality":"low","substream":1}' \
+  http://localhost:8080/api/cameras/CAMERA_ID/connect
+```
+
+The catalog reports the selected `connection_mode`; `transport.mode` and `transport.path` describe the transport, with `path: relay` only after a relay connection is established. The status does not expose relay endpoint addresses or transport credentials. Source selection is saved for restart recovery. Relay negotiation may take about a minute, with up to 100 seconds allowed for the first frame; availability depends on the camera, firmware, vendor service and both networks. VP transport is unsupported.
+
+The `substream` selector accepts `0`, `1` or `2`. The independent `quality` selector accepts `high`, `medium`, `low` or `null`; null leaves camera quality unchanged. Native quality codes are 1, 2 and 4 respectively.
 
 Media routes accept `?lens=0` through `?lens=15`; choose lenses actually observed for the camera. Multiple lenses share one physical connection. Browser MJPEG is capped at 960 pixels wide and 5 fps. H.264 is not transcoded and may require an external player. A missing first frame returns `503`.
 
@@ -68,7 +84,7 @@ Media routes accept `?lens=0` through `?lens=15`; choose lenses actually observe
 
 See [bridge exports](bridge-exports.md) for setup and client examples. These endpoints publish existing camera H.264 through the bridge; they do not modify native camera ONVIF/RTSP settings.
 
-`GET /api/cameras/{camera_id}/export` returns availability, enabled state, per-observed-lens profiles and credential-free RTSP/ONVIF addresses. Enable with `POST` and `{"enabled":true,"rtsp":true,"onvif":true}`; optional `advertise_host` is a client-reachable host name or IPv4 address, without a scheme or port. Use `onvif:false` for RTSP only; ONVIF requires RTSP. Enabling requires a connected camera and a reachable MediaMTX listener. Reapplying configuration creates a new publication ID and credentials. Disable with `{"enabled":false}`.
+`GET /api/cameras/{camera_id}/export` returns availability, enabled state, per-observed-lens profiles and credential-free RTSP/ONVIF addresses. Enable with `POST` and `{"enabled":true,"rtsp":true,"onvif":true}`; optional `advertise_host` is a client-reachable host name or IPv4 address, without a scheme or port. Use `onvif:false` for RTSP only; ONVIF requires RTSP. Enabling requires a connected camera and a reachable MediaMTX listener. Reapplying configuration or switching the source connection retains the publication ID and credentials; source switching pauses video while the camera reconnects. Disable with `{"enabled":false}`.
 
 `POST /api/cameras/{camera_id}/export/credentials` with `{}` reveals `username` (`bridge`) and a generated publication password. Ordinary status responses and URLs contain no password. These credentials are separate from account, camera and browser-player credentials. Logout, disconnect or disabling stops publication. API restart automatically restores it with the same paths/password.
 
@@ -127,6 +143,6 @@ The full constraints and lifecycle are described in [bridge exports](bridge-expo
 
 ## Live quality switching
 
-`POST /api/cameras/{camera_id}/stream` accepts the same `ip`, `substream` and `quality` preferences as connect. When the camera is connected and its IP/substream are unchanged, it sends the native `camera_control.cgi?param=16` command through the current serialized session and returns `mode: live`. The camera/publication is retained and the preference is persisted. All lenses share the native quality. A brief encoder/keyframe transition can occur; the UI does not perform a fresh login or transport handshake.
+`POST /api/cameras/{camera_id}/stream` accepts the same `ip`, `substream`, `quality` and optional `connection_mode` preferences as connect. Omitted `connection_mode` retains the current mode. When the camera is connected and its mode/substream and applicable LAN IP are unchanged, it sends the native `camera_control.cgi?param=16` command through the current serialized session and returns `mode: live`. The camera/publication is retained and the preference is persisted. All lenses share the native quality. A brief encoder/keyframe transition can occur; the UI does not perform a fresh login or transport handshake.
 
-Changing IP/substream, or applying settings to a disconnected camera, returns `mode: reconnect` and starts the usual asynchronous connection. Explicit `/connect` remains a full reconnect. Null quality leaves the current native quality untouched and clears its restart override.
+Changing connection mode, LAN IP or substream, or applying settings to a disconnected camera, returns `mode: reconnect` and starts the usual asynchronous connection. In cloud mode a LAN-IP hint does not change the relay route. Explicit `/connect` remains a full reconnect. Null quality leaves the current native quality untouched and clears its restart override.

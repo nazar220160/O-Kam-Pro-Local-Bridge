@@ -243,12 +243,18 @@ def openapi():
     operation(
         "/api/cameras/{camera_id}/connect",
         "post",
-        "Start or reconnect selected LAN camera",
+        "Start or reconnect camera over LAN or O-Kam cloud relay",
         body(
             {
                 "ip": {
                     "type": ["string", "null"],
-                    "description": "Optional private IPv4 address; if omitted use account LAN IP then UID discovery.",
+                    "description": "Optional private IPv4 address; if omitted retain the saved LAN hint, then use account LAN IP or UID discovery. Not used for cloud routing.",
+                },
+                "connection_mode": {
+                    "type": "string",
+                    "enum": ["lan", "cloud"],
+                    "default": "lan",
+                    "description": "LAN uses private IP/discovery; cloud requires vendor relay rendezvous by camera UID and ignores the LAN address for routing. No automatic fallback.",
                 },
                 "substream": {"type": "integer", "enum": [0, 1, 2], "default": 1},
                 "quality": {
@@ -259,7 +265,7 @@ def openapi():
             }
         ),
         status="202",
-        description="Asynchronous. Poll camera state until viewable=true or error. Multiple lenses share one physical connection. LAN/routed reachability is required; this API does not add cloud relay transport.",
+        description="Asynchronous. Poll camera state until viewable=true or error. Multiple lenses share one physical connection. LAN requires private network reachability; cloud uses vendor relay services and can require up to 100 seconds for the first frame. The chosen mode is persisted; existing publication URLs/passwords are retained across a source change. Cloud availability depends on vendor services, camera firmware and UDP reachability.",
     )
     operation(
         "/api/cameras/{camera_id}/stream",
@@ -268,6 +274,11 @@ def openapi():
         body(
             {
                 "ip": {"type": ["string", "null"]},
+                "connection_mode": {
+                    "type": "string",
+                    "enum": ["lan", "cloud"],
+                    "description": "Omit to retain the current camera mode. Changing mode starts a new connection.",
+                },
                 "substream": {"type": "integer", "enum": [0, 1, 2], "default": 1},
                 "quality": {
                     "type": ["string", "null"],
@@ -275,7 +286,7 @@ def openapi():
                 },
             }
         ),
-        description="On an already connected camera with unchanged IP/substream, applies native quality over the serialized existing session and persists it without replacing the camera or publication. A changed IP/substream or disconnected camera starts asynchronous connection instead. Response mode is live or reconnect. Null clears the saved override without changing the current native quality. Native quality is shared by all lenses; a brief keyframe/encoder transition is possible.",
+        description="On an already connected camera with unchanged transport/IP/substream, applies native quality over the serialized existing session and persists it without replacing the camera or publication. A changed mode, LAN IP, substream or disconnected camera starts asynchronous connection instead. Cloud does not use IP for routing. Response mode is live or reconnect. Null clears the saved override without changing the current native quality. Native quality is shared by all lenses; a brief keyframe/encoder transition is possible.",
     )
     operation(
         "/api/cameras/{camera_id}/disconnect",
@@ -469,7 +480,7 @@ def openapi():
             "title": "O-Kam Pro Local Bridge API",
             "version": __version__,
             "license": {"name": "MIT"},
-            "description": "Independent local camera bridge. Camera/firmware support varies; account login and transport bootstrap use vendor services, video is LAN-only.",
+            "description": "Independent camera bridge with LAN and optional O-Kam CS2 relay video. Camera/firmware support varies; account login, bootstrap and cloud mode use vendor services.",
         },
         "servers": [{"url": "/"}],
         "tags": [{"name": t} for t in ("System", "Account", "Cameras", "Media")],
@@ -502,6 +513,15 @@ def openapi():
                         "state": string,
                         "viewable": {"type": "boolean"},
                         "ip": {"type": ["string", "null"]},
+                        "connection_mode": {"type": "string", "enum": ["lan", "cloud"]},
+                        "transport": {
+                            "type": "object",
+                            "properties": {
+                                "mode": {"type": "string", "enum": ["lan", "cloud"]},
+                                "path": {"type": ["string", "null"]},
+                            },
+                            "description": "Observed session path, e.g. relay, once negotiated. Empty before a camera instance exists.",
+                        },
                         "lenses": {"type": "array", "items": {"type": "integer"}},
                         "lens_metadata": {"type": "array", "items": obj},
                         "metadata": obj,

@@ -142,9 +142,11 @@
             </div>
             <div class="head-actions">
               <button id="connect" class="primary">Открыть видео</button
+              ><button id="connect-cloud" class="ghost" title="Открыть видео через серверы O-Kam Pro">Через O-Kam Pro</button
               ><button id="disconnect" class="ghost">Остановить</button>
             </div>
           </div>
+          <p id="connection-info" class="connect-note source-note" aria-live="polite"></p>
           <div id="camera-error" class="alert" role="alert" hidden></div>
           <div class="view-tabs" role="tablist" aria-label="Разделы камеры">
             <button
@@ -237,9 +239,9 @@
                 </div>
               </div>
               <p class="connect-note">
-                Сначала используется IP из данных аккаунта. Если адрес
+                Для локального видео сначала используется IP из данных аккаунта. Если адрес
                 отсутствует, выполняется поиск в LAN. IP, указанный вручную,
-                имеет приоритет. Не требуется менять настройки камеры.
+                имеет приоритет. Подключение «Через O-Kam Pro» не использует этот адрес.
               </p>
             </details>
             <details class="box">
@@ -252,8 +254,9 @@
             </div>
             <div id="lens-grid" class="lens-grid"></div>
             <p id="view-hint" class="muted">
-              Нажмите «Открыть видео». Мост подключится к выбранной камере в
-              вашей локальной сети и проверит доступ к потоку.
+              «Открыть видео» подключает камеру в локальной сети. «Через O-Kam Pro»
+              открывает её через сервис производителя, в том числе из другой сети,
+              если камера доступна через облачный маршрут.
             </p>
             <p class="footer-note">
               Снимки и ссылки VLC доступны отдельно для каждой линзы. Данные о

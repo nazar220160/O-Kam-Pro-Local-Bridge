@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0
+
+- Add an explicit O-Kam Pro relay video button beside LAN playback. Reuse native CS2 relay negotiation and camera authorization; no LAN IP or discovery is required and there is no silent LAN fallback.
+- Expose selected connection mode and actual transport path in camera status. Persist the source across restart, retain LAN hints and preserve existing RTSP/ONVIF publication IDs/passwords when switching sources.
+- Keep quality changes on the current local or relay session; document relay network requirements, vendor/firmware availability limits and unsupported VP transport.
+
 ## 0.10.1
 
 - Apply native quality changes over the existing serialized camera session. Preserve the connection, camera object, publication ID/password and persisted preferences. IP/substream changes and explicit reconnect retain their prior behavior.

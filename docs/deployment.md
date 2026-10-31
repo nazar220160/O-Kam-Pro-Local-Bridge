@@ -2,7 +2,7 @@
 
 ## Docker Compose on Linux
 
-Prerequisites: Docker Engine, Docker Compose, a compatible CS2/PPPP camera reachable on a private network, and an O-Kam account with access to it. Vendor services must be reachable for account login and transport bootstrap.
+Prerequisites: Docker Engine, Docker Compose, a compatible CS2/PPPP camera, and an O-Kam account with access to it. Local mode requires private-network reachability. Optional O-Kam Pro relay mode requires internet at both the bridge and camera. Vendor services must be reachable for account login and transport bootstrap; relay video also depends on those services.
 
 Encrypted account-issued camera credentials are decoded in-process using the supported securityPwd protocol. No official-client executable, credentials mount or manual file download is required.
 
@@ -50,7 +50,7 @@ git pull
 docker compose up -d --build
 ```
 
-The rebuild is required when updating source on a machine with an existing image. From 0.8.1 onward, no `secrets/SuperIPCam.exe` is needed. Existing recordings and gateway volumes are retained. Log in and reconnect after the API is recreated. An existing `WEB_LISTEN=127.0.0.1` override still restricts dashboard access; set it to `0.0.0.0` for LAN access.
+The rebuild is required when updating source on a machine with an existing image. From 0.8.1 onward, no `secrets/SuperIPCam.exe` is needed. Existing recordings, gateway and state volumes are retained. Saved sessions and desired camera connections are restored after the API is recreated; an installation predating persistent state needs one initial login/setup. An existing `WEB_LISTEN=127.0.0.1` override still restricts dashboard access; set it to `0.0.0.0` for LAN access.
 
 ## macOS: native camera API, Docker dashboard
 
@@ -112,6 +112,14 @@ For a manually deployed native API, `BRIDGE_RTSP_INTERNAL_URL` is its credential
 
 On macOS, the API continues to handle physical-camera UDP natively, preserving the 0.6.1 transport fix. MediaMTX publishes its TCP port from Docker. The all-container Desktop alternative remains experimental; WS-Discovery multicast generally cannot cross container NAT, so use the returned manual ONVIF address.
 
+## Local or O-Kam Pro relay source
+
+In the dashboard, **Открыть видео** connects over LAN; **Через O-Kam Pro** next to it uses the vendor relay. Each camera remembers its selected source across restart. Relay mode does not use or discover the camera LAN IP, so cameras on separate networks can be attempted from one server without adding a VPN to those sites. This does not guarantee remote availability: the camera must be online through the vendor service and use the supported CS2/PPPP transport. VP is not implemented.
+
+Relay setup uses the camera UID and vendor directory on UDP 32100, followed by a dynamically allocated relay endpoint/port. Permit outbound UDP and its return traffic; opening only a fixed camera LAN port is insufficient. There is no fixed relay IP to enter in the camera-IP field. The initial handshake may take about a minute. Native camera authentication and account authorization remain in use. Failed relay attempts report an error rather than silently using a local connection.
+
+Switching the source reconnects the shared camera session for all lenses and viewers. Enabled bridge publications resume against that source with the same ID/password and NVR URLs. Applying only quality keeps the current local or relay session.
+
 ## Connection troubleshooting
 
 | Symptom | Check |
@@ -120,6 +128,7 @@ On macOS, the API continues to handle physical-camera UDP natively, preserving t
 | `encrypted_credentials_invalid` | Refresh the account catalog and reconnect; the account record may be stale or use an unsupported credential variant. |
 | `credential_key_not_found` | Only relevant to an explicitly supplied legacy client-file override; remove the override for the built-in protocol. |
 | No LAN reply | Camera private IPv4, host routing, firewall and UDP transport reachability. |
+| Relay connection fails | Internet at the bridge/camera, vendor availability, outbound UDP/return traffic and CS2 compatibility. A LAN IP cannot repair a failed relay rendezvous. |
 | No video | Correct native credentials, compatible transport, FFmpeg, camera state and selected lens. |
 | Open native service port but no RTSP/ONVIF login | TCP availability is not protocol or credential verification. |
 
@@ -135,7 +144,7 @@ Back up the SQLite manifest and clips together while the API is stopped. Monitor
 
 ## Sessions and automatic restart recovery
 
-No extra configuration is needed: Compose uses the `state` named volume at `/state` (`BRIDGE_STATE_DIR`); native API/macOS uses `.runtime/state`. Saved browser cookies/Bearer sessions remain valid across restart. Camera IP/quality, publication IDs/passwords and server recording policies are restored. Camera and MediaMTX startup are retried in the background, so API health can be ready before video. Vendor login tokens are refreshed using the encrypted protocol digest; cached authorized native configuration lets a local camera reconnect when vendor services are temporarily unavailable.
+No extra configuration is needed: Compose uses the `state` named volume at `/state` (`BRIDGE_STATE_DIR`); native API/macOS uses `.runtime/state`. Saved browser cookies/Bearer sessions remain valid across restart. Camera IP/source/quality, publication IDs/passwords and server recording policies are restored. Camera and MediaMTX startup are retried in the background, so API health can be ready before video. Vendor login tokens are refreshed using the encrypted protocol digest; cached authorized native configuration lets a local camera reconnect when vendor services are temporarily unavailable. Relay reconnection still requires the vendor directory/relay service.
 
 Explicit logout deletes saved account state. Explicit disconnect/export disable/recording stop persists the off choice. Repeated valid login to the same account resumes its existing workspace rather than creating a second camera session. ONVIF subscription/search cursors and finite SD jobs are transient; clients recreate subscriptions when a listener reconnects. Completed archive files remain in their separate persistent recordings volume.
 

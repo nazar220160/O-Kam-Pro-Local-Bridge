@@ -137,6 +137,7 @@ class StateService:
                             "ip": record.ip,
                             "substream": record.substream,
                             "quality": record.quality,
+                            "connection_mode": record.connection_mode,
                             "wanted": record.wanted,
                             "config": record.cached_config,
                         }
@@ -203,6 +204,7 @@ class StateService:
                     row["quality"],
                 )
                 record.wanted = bool(row["wanted"])
+                record.connection_mode = row.get("connection_mode", "lan")
                 record.cached_config = row.get("config")
                 # Recreate enough account metadata for later catalog refresh.
                 client.raw_items.append(
@@ -228,6 +230,7 @@ class StateService:
                     if record.ip:
                         config["ip"] = record.ip
                     config["substream"] = record.substream
+                    config["connection_mode"] = record.connection_mode
                     config.pop("quality", None)
             workspace._connect(
                 record,

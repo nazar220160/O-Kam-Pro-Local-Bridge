@@ -1,4 +1,4 @@
-"""Read-only, LAN-only SD archive retrieval on an independent camera session."""
+"""Read-only SD retrieval over the camera's selected transport in its own session."""
 
 import hashlib
 import json
@@ -16,7 +16,7 @@ from pathlib import Path
 from .transport import (
     authenticate,
     authorize_account,
-    connect_lan,
+    connect_camera,
     make_request,
     response_result,
 )
@@ -152,7 +152,7 @@ def iter_frames(data, allow_incomplete=False):
 
 
 class SDSession:
-    """A session owned exclusively by one archive operation; no cloud access."""
+    """A session owned exclusively by one archive operation."""
 
     def __init__(self, config):
         self.config = config
@@ -160,7 +160,7 @@ class SDSession:
         self._heartbeat = time.monotonic()
 
     def __enter__(self):
-        self.session = connect_lan(self.config)
+        self.session = connect_camera(self.config)
         try:
             authenticate(self.session, self.config)
             authorize_account(self.session, self.config)

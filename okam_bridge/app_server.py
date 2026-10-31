@@ -479,6 +479,7 @@ class AppHandler(Handler):
                             data.get("ip") or None,
                             data.get("substream", 1),
                             data.get("quality"),
+                            data.get("connection_mode"),
                         ),
                     )
                 if parts[3] == "connect":
@@ -487,6 +488,7 @@ class AppHandler(Handler):
                         data.get("ip") or None,
                         data.get("substream", 1),
                         data.get("quality"),
+                        data.get("connection_mode", "lan"),
                     )
                     return self._json(202, {"ok": True, "state": "preparing"})
                 if parts[3] == "disconnect":

@@ -2,11 +2,11 @@
 
 **Your cameras. Your network. Your API.**
 
-[![Version 0.10.1](https://img.shields.io/badge/version-0.10.1-95d75d)](CHANGELOG.md)
+[![Version 0.11.0](https://img.shields.io/badge/version-0.11.0-95d75d)](CHANGELOG.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![API reference](https://img.shields.io/badge/API-OpenAPI_3.1-527ac9)](docs/api.md)
 
-A self-hosted dashboard and HTTP API for compatible O-Kam Pro cameras using the CS2/PPPP protocol. View local video, switch lenses, move PTZ cameras, inspect metadata and send validated native controls from one interface.
+A self-hosted dashboard and HTTP API for compatible O-Kam Pro cameras using the CS2/PPPP protocol. View video over your LAN or the vendor relay, switch lenses, move PTZ cameras, inspect metadata and send validated native controls from one interface.
 
 [Quick start](#quick-start) · [Deployment](docs/deployment.md) · [API](docs/api.md) · [Bridge exports](docs/bridge-exports.md) · [Security](SECURITY.md) · [Русский](README.ru.md)
 
@@ -15,6 +15,7 @@ A self-hosted dashboard and HTTP API for compatible O-Kam Pro cameras using the 
 ## What it does
 
 - Browser live view, snapshots, MJPEG and original H.264 output.
+- Separate local and O-Kam Pro relay connection buttons; the selected source survives restart.
 - Optional bridge RTSP/TCP publication and ONVIF Device/Media, PTZ, PullPoint events and archive services, with one profile per observed lens.
 - Multiple lens views, including three-lens camera layouts where supported.
 - High, medium and low native quality selection.
@@ -24,7 +25,7 @@ A self-hosted dashboard and HTTP API for compatible O-Kam Pro cameras using the 
 - Encrypted persistent sessions and automatic camera/publication/recording restoration after restart.
 - Separate Python API and static nginx dashboard, with a documented OpenAPI contract.
 
-**Compatibility matters:** this bridge supports the CS2/PPPP transport family, not every camera sold under the O-Kam name. Cameras must be reachable on your LAN or a routed private network. Account login and transport bootstrap contact vendor services; this is not a cloud relay or WAN video transport.
+**Compatibility matters:** this bridge supports the CS2/PPPP transport family, not every camera sold under the O-Kam name. Local mode needs LAN or routed private reachability. The optional O-Kam Pro mode uses the vendor UDP relay and needs internet access at the bridge and camera; availability depends on vendor services, firmware and network policy. It does not silently fall back to LAN. Account login and transport bootstrap contact vendor services in both modes.
 
 Compatible G.711 A-law camera audio is received and published as AAC alongside live RTSP video. Two-way talk and VP transport are not implemented. Bridge publication copies H.264 without encoding through the separate MediaMTX service (TCP 8554 by default); the optional ONVIF endpoint uses port 8899 and authenticated snapshots. WS-Discovery works only where multicast is reachable. ONVIF supports bounded continuous pan/tilt, native presets, observed status events, recording search and forward clip replay. Absolute PTZ positions, reverse playback and RTSP clock seeking are unsupported; ONVIF certification is not claimed. [Set up bridge exports](docs/bridge-exports.md).
 
@@ -45,7 +46,7 @@ Encrypted camera credentials are decoded by the bridge itself. No official PC cl
 docker compose up -d
 ```
 
-Open [localhost:8080](http://localhost:8080), sign in with your O-Kam account, select a camera and connect. The dashboard starts separately from the API; Compose builds both and initializes their private gateway token automatically. No manual gateway token setup is needed.
+Open [localhost:8080](http://localhost:8080), sign in with your O-Kam account, select a camera and choose **Открыть видео** for LAN or **Через O-Kam Pro** for the vendor relay. Relay mode does not require the camera LAN IP. The dashboard starts separately from the API; Compose builds both and initializes their private gateway token automatically. No manual gateway token setup is needed.
 
 Default listeners: dashboard `0.0.0.0:8080`, API `127.0.0.1:8098`. The API reference is available through the dashboard at [/docs/](http://localhost:8080/docs/) and [/openapi.json](http://localhost:8080/openapi.json).
 
@@ -74,7 +75,7 @@ python -m okam_bridge api --port 8098
 
 The API serves JSON and API documentation. The dashboard is the separate `web/` service. Credential decoding is built in; no `--credential-client` argument is needed. See [deployment](docs/deployment.md) for access protection and frontend configuration, and [API examples](docs/api.md) for login, video and controls.
 
-Publication credentials are separate from account, camera and browser-player credentials and appear automatically in selectable text fields when publication is enabled. Account sessions, camera connections, quality, publication IDs/passwords and enabled server recording are stored in encrypted persistent state and restored automatically after API/container restart. RTSP URLs remain unchanged, so an NVR does not need reconfiguration. Explicit logout removes the saved session and stops its publications; disconnect/disable remains off after restart.
+Publication credentials are separate from account, camera and browser-player credentials and appear automatically in selectable text fields when publication is enabled. Account sessions, camera connections and source selection, quality, publication IDs/passwords and enabled server recording are stored in encrypted persistent state and restored automatically after API/container restart. RTSP URLs remain unchanged, so an NVR does not need reconfiguration. Switching between local and relay video retains the publication ID/password and NVR addresses, with a pause while the source reconnects. Explicit logout removes the saved session and stops its publications; disconnect/disable remains off after restart.
 
 ## Project
 
