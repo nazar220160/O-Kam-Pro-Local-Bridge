@@ -1,0 +1,2 @@
+# AES decoding of account-issued camera passwords
+cryptography>=44

@@ -1,0 +1,11 @@
+*
+!Dockerfile
+!requirements.txt
+!okam_bridge/
+!okam_bridge/**
+!scripts/
+!scripts/bootstrap.py
+**/__pycache__
+**/*.pyc
+**/*.exe
+**/*.private.*

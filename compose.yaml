@@ -1,0 +1,63 @@
+name: okam-local-bridge
+services:
+  init:
+    image: okam-local-bridge:local
+    build: .
+    user: "0:0"
+    entrypoint: ["python", "/app/scripts/bootstrap.py"]
+    volumes:
+      - gateway:/run/bridge
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    network_mode: none
+    restart: "no"
+  bridge:
+    image: okam-local-bridge:local
+    build: .
+    network_mode: host
+    command: ["api", "--listen", "127.0.0.1", "--port", "${BRIDGE_PORT:-8098}", "--access-token-file", "/run/bridge/gateway-token"]
+    environment:
+      BRIDGE_CREDENTIAL_CLIENT: /run/credentials/SuperIPCam.exe
+      BRIDGE_HEALTH_PORT: "${BRIDGE_PORT:-8098}"
+    volumes:
+      - gateway:/run/bridge:ro
+      - ./secrets:/run/credentials:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.environ['BRIDGE_HEALTH_PORT']+'/health',timeout=3).read()"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  web:
+    build: ./web
+    network_mode: host
+    environment:
+      WEB_LISTEN: "${WEB_LISTEN:-127.0.0.1}"
+      WEB_PORT: "${WEB_PORT:-8080}"
+      BRIDGE_PORT: "${BRIDGE_PORT:-8098}"
+    volumes:
+      - gateway:/run/bridge:ro
+    depends_on:
+      bridge:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:$${WEB_PORT}/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:size=32m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+volumes:
+  gateway:
