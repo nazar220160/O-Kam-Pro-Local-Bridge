@@ -11,6 +11,7 @@
     loading: false,
     viewable: false,
     credentialId: undefined,
+    hostDirty: false,
   };
   const el = (name) => $("bridge-export-" + name);
   const camera = () => S.cameras.find((c) => c.id === S.selected);
@@ -37,6 +38,7 @@
     E.busy = E.loading = false;
     clearSecret();
     el("host").value = "";
+    E.hostDirty = false;
     el("rtsp").checked = el("onvif").checked = true;
     el("profiles").replaceChildren();
   }
@@ -94,6 +96,8 @@
   function showStatus(data) {
     // Credentials stay in the selected publication fields, outside catalog state.
     E.data = { enabled: !!data.enabled, available: data.available !== false, export_id: data.export_id };
+    if (data.enabled && !E.hostDirty && typeof data.advertise_host === "string")
+      el("host").value = data.advertise_host;
     const states = {
       starting: "Запускается",
       streaming: "Передаётся видео",
@@ -214,6 +218,7 @@
     try {
       const data = await api(path(c), "POST", payload);
       if (current(c)) {
+        E.hostDirty = false;
         showStatus(data);
         await showCredentials(data, c);
       }
@@ -239,7 +244,9 @@
   };
   el("use-host").onclick = () => {
     el("host").value = location.hostname;
+    E.hostDirty = true;
   };
+  el("host").oninput = () => { E.hostDirty = true; };
   async function showCredentials(publication, c) {
     if (!publication.enabled) return;
     if (el("password").value && E.credentialId === publication.export_id) return;

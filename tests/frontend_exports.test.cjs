@@ -194,6 +194,29 @@ const flush = async () => {
   e.intervals[0]();
   assert.equal(e.requests.length, 1);
   assert.equal(e.requests[0].args.length, 1, "visible poll reads only");
+  e = setup();
+  e.requests.shift().resolve({ enabled: false, available: true });
+  await flush();
+  const autoEnable = e.get("bridge-export-enable").onclick();
+  const automaticWrite = e.requests.at(-1);
+  assert.equal(automaticWrite.args[2].advertise_host, undefined,
+    "empty address lets the API choose its trusted server address");
+  automaticWrite.resolve({enabled:true,advertise_host:"bridge.example",profiles:[],export_id:"publication"});
+  await flush();
+  e.requests.at(-1).resolve({username:"bridge",password:"LOCAL"});
+  await autoEnable;
+  assert.equal(e.get("bridge-export-host").value, "bridge.example",
+    "the resolved bridge address is visible after enabling");
+  e.get("bridge-export-host").value = "edited.example";
+  e.get("bridge-export-host").oninput();
+  e.intervals[0]();
+  e.requests.at(-1).resolve({enabled:true,advertise_host:"bridge.example",profiles:[],export_id:"publication"});
+  await flush();
+  assert.equal(e.get("bridge-export-host").value, "edited.example",
+    "status polling does not overwrite an address being edited");
+  e.run("S.selected='B';renderDetails()");
+  assert.equal(e.get("bridge-export-host").value, "",
+    "switching camera clears the previous address and edit state");
   console.log(
     "Frontend exports passed: explicit writes, selection races, automatic visible credentials and account isolation, readiness",
   );

@@ -338,7 +338,7 @@ def openapi():
                 "onvif": {"type": "boolean", "default": True},
                 "advertise_host": {
                     "type": "string",
-                    "description": "Optional server LAN IP or DNS name for NVR access; inferred from camera route when omitted.",
+                    "description": "Optional bridge IP or DNS name reachable by the NVR. When omitted retain the saved publication host; otherwise cloud uses the dashboard/request host and LAN uses the camera route. Cloud publication needs no camera LAN IP. Set explicitly when the inferred address is not NVR-reachable.",
                 },
             },
             ["enabled"],

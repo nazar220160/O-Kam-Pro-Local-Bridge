@@ -7,7 +7,7 @@ import binascii
 import threading
 import hmac
 import shutil
-from .exports import ExportManager, ExportError
+from .exports import ExportManager, ExportError, publication_request_host
 from urllib.parse import urlsplit, parse_qs
 from pathlib import Path
 import re
@@ -451,7 +451,15 @@ class AppHandler(Handler):
                     except ValueError:
                         return self._json(400, {"error": "archive_operation_failed"})
                 if parts[3] == "export":
-                    value = self.server.exports.configure(workspace, parts[2], data)
+                    authority = self.headers.get("Host", "")
+                    if self._gateway_authorized():
+                        authority = self.headers.get("X-Forwarded-Host", authority)
+                    value = self.server.exports.configure(
+                        workspace,
+                        parts[2],
+                        data,
+                        request_host=publication_request_host(authority),
+                    )
                     if not value["enabled"]:
                         workspace.created = __import__("time").monotonic()
                     age = 31536000

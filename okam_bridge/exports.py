@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 import hmac
+import ipaddress
 import os
 import re
 import secrets
@@ -18,6 +19,37 @@ from .onvif_events import EventBroker
 
 class ExportError(ValueError):
     pass
+
+
+def publication_request_host(authority):
+    """Extract a usable IPv4/DNS publication host from an HTTP authority."""
+    if (
+        not isinstance(authority, str)
+        or len(authority) > 260
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]*(?::[0-9]{1,5})?", authority)
+    ):
+        return None
+    try:
+        parsed = urlsplit("http://" + authority)
+        host = parsed.hostname
+        if parsed.port is not None and not 1 <= parsed.port <= 65535:
+            return None
+        if len(host) > 253 or not re.fullmatch(
+            r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?", host
+        ):
+            return None
+        canonical = host.rstrip(".")
+        if canonical == "localhost" or canonical.endswith(".localhost"):
+            return None
+        try:
+            address = ipaddress.ip_address(canonical)
+        except ValueError:
+            return host
+        if address.is_loopback or address.is_unspecified or address.is_multicast:
+            return None
+        return host
+    except ValueError:
+        return None
 
 
 def publisher_command(ffmpeg, url, fps=10, audio_fd=None):
@@ -325,7 +357,15 @@ class ExportManager:
         except OSError:
             return False
 
-    def _host(self, workspace, camera_id, value):
+    def _host(self, workspace, camera_id, value, request_host=None):
+        with workspace.lock:
+            record = workspace.records[camera_id]
+            ip = record.ip
+            cloud = record.connection_mode == "cloud"
+            saved = workspace.saved_exports.get(camera_id, {}).get("advertise_host")
+        value = value or saved
+        if not value and (cloud or not ip):
+            value = request_host
         if value:
             if (
                 not isinstance(value, str)
@@ -334,10 +374,8 @@ class ExportManager:
             ):
                 raise ExportError("invalid_advertise_host")
             return value
-        with workspace.lock:
-            ip = workspace.records[camera_id].ip
-        if not ip:
-            raise ExportError("camera_ip_required")
+        if cloud or not ip:
+            raise ExportError("advertise_host_required")
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
                 sock.connect((ip, 9))
@@ -379,7 +417,7 @@ class ExportManager:
         with self.lock:
             return any(e.workspace is workspace for e in self.entries.values())
 
-    def configure(self, workspace, camera_id, data):
+    def configure(self, workspace, camera_id, data, *, request_host=None):
         if not isinstance(data, dict) or type(data.get("enabled")) is not bool:
             raise ExportError("invalid_export_settings")
         with workspace.lock:
@@ -404,7 +442,9 @@ class ExportManager:
             generations = self.generations.setdefault(workspace, {})
             generation = generations.get(camera_id, 0) + 1
             generations[camera_id] = generation
-        host = self._host(workspace, camera_id, data.get("advertise_host"))
+        host = self._host(
+            workspace, camera_id, data.get("advertise_host"), request_host
+        )
         if not self.probe():
             raise ExportError("rtsp_service_unavailable")
         if onvif:

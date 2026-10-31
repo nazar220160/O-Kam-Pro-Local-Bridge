@@ -1,4 +1,4 @@
-# HTTP API · v0.11.0
+# HTTP API · v0.11.1
 
 The Python API is independent of the dashboard. With Compose, use `http://localhost:8080` for both the dashboard and proxied API. For a native process started with `python -m okam_bridge api --port 8098`, use `http://localhost:8098`.
 
@@ -85,6 +85,8 @@ Media routes accept `?lens=0` through `?lens=15`; choose lenses actually observe
 See [bridge exports](bridge-exports.md) for setup and client examples. These endpoints publish existing camera H.264 through the bridge; they do not modify native camera ONVIF/RTSP settings.
 
 `GET /api/cameras/{camera_id}/export` returns availability, enabled state, per-observed-lens profiles and credential-free RTSP/ONVIF addresses. Enable with `POST` and `{"enabled":true,"rtsp":true,"onvif":true}`; optional `advertise_host` is a client-reachable host name or IPv4 address, without a scheme or port. Use `onvif:false` for RTSP only; ONVIF requires RTSP. Enabling requires a connected camera and a reachable MediaMTX listener. Reapplying configuration or switching the source connection retains the publication ID and credentials; source switching pauses video while the camera reconnects. Disable with `{"enabled":false}`.
+
+An omitted `advertise_host` retains the saved publication host. For a new cloud camera, it uses the dashboard/API request host without the web port; no camera LAN IP or route to that camera is needed. Only the authenticated gateway's forwarded host is trusted. A new LAN publication retains interface inference toward the camera. Set `advertise_host` explicitly for a different NVR route or when accessing the API through localhost; otherwise the latter returns `advertise_host_required`.
 
 `POST /api/cameras/{camera_id}/export/credentials` with `{}` reveals `username` (`bridge`) and a generated publication password. Ordinary status responses and URLs contain no password. These credentials are separate from account, camera and browser-player credentials. Logout, disconnect or disabling stops publication. API restart automatically restores it with the same paths/password.
 

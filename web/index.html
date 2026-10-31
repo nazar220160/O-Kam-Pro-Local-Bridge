@@ -542,11 +542,11 @@ get_status.cgi?</textarea
                 </div>
                 <div>
                   <label for="bridge-export-host">Адрес моста для плеера · необязательно</label>
-                  <input id="bridge-export-host" placeholder="Автоматически · IP в локальной сети" maxlength="253" autocomplete="off" spellcheck="false" />
-                  <button id="bridge-export-use-host" class="text-button" type="button">Использовать домен этого сервера</button>
+                  <input id="bridge-export-host" placeholder="Автоматически · адрес сервера панели" maxlength="253" autocomplete="off" spellcheck="false" />
+                  <button id="bridge-export-use-host" class="text-button" type="button">Использовать адрес этой панели</button>
                 </div>
               </div>
-              <p class="note">Укажите только IP или имя хоста без протокола, порта и пароля. Адрес должен быть доступен устройству, на котором работает плеер или NVR. В Frigate укажите IP моста в поле «Хост/IP» и порт ONVIF отдельно (по умолчанию 8899).</p>
+              <p class="note">Сохранённый адрес моста используется повторно. Для камеры через O-Kam Pro адрес определяется по этой панели; для локальной камеры — по сетевому интерфейсу сервера. При необходимости укажите другой IP или имя сервера без протокола, порта и пароля. Этот адрес должен быть доступен вашему плееру или NVR. В Frigate укажите адрес моста в поле «Хост/IP» и порт ONVIF отдельно (по умолчанию 8899).</p>
               <div class="control-actions">
                 <button id="bridge-export-enable" class="primary" type="button" disabled>Включить / применить</button>
                 <button id="bridge-export-disable" class="ghost" type="button" disabled>Выключить экспорт</button>

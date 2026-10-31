@@ -2,7 +2,7 @@
 
 **Ваши камеры. Ваша сеть. Ваш API.**
 
-[![Версия 0.11.0](https://img.shields.io/badge/version-0.11.0-95d75d)](CHANGELOG.md)
+[![Версия 0.11.1](https://img.shields.io/badge/version-0.11.1-95d75d)](CHANGELOG.md)
 [![Лицензия MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Веб-панель и HTTP API для совместимых камер O-Kam Pro с протоколом CS2/PPPP: видео по локальной сети или через серверы производителя, несколько объективов, PTZ, метаданные и проверяемые команды управления.

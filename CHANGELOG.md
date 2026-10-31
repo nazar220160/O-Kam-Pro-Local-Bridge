@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1
+
+- Enable bridge ONVIF/RTSP for cloud-only cameras without requiring a camera LAN IP. Infer new cloud publication addresses from the dashboard/request host, trusting forwarded headers only from the authenticated gateway.
+- Retain saved publication hosts and credentials across reapply/restart; preserve LAN interface selection for new local publications. Show the resolved address in the panel and explain address-selection failures.
+
 ## 0.11.0
 
 - Add an explicit O-Kam Pro relay video button beside LAN playback. Reuse native CS2 relay negotiation and camera authorization; no LAN IP or discovery is required and there is no silent LAN fallback.

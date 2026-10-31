@@ -11,7 +11,7 @@ Camera encoder configuration writes, absolute/relative PTZ positioning, ONVIF re
 1. Start the [Linux Compose deployment or macOS launcher](deployment.md). Both include MediaMTX; the native API command alone does not start it.
 2. Sign in, connect the camera and wait for live video and the desired lenses to appear.
 3. Open **ONVIF / RTSP → ONVIF / RTSP от моста**. Leave RTSP selected; select ONVIF if needed.
-4. Optionally enter the bridge's LAN host name or IPv4 address reachable by the player. Omit the scheme and port. Automatic selection uses the interface toward the camera; override it if your NVR uses a different route.
+4. Optionally enter the bridge's host name or IPv4 address reachable by the player. Omit the scheme and port. An existing publication keeps its saved address. For a new cloud connection, the bridge uses the dashboard host (without its web port); the camera's private IP is not required. LAN connections use the server interface toward the camera. Override the address if your NVR uses a different route. If the dashboard/API is accessed only through localhost or a tunnel, enter a bridge address reachable by the NVR explicitly.
 5. Click **Включить / применить**. Copy the returned device address or the RTSP address for the required lens.
 6. The generated username/password appear automatically as selectable text fields. Copy them into the separate credential fields in your client.
 
