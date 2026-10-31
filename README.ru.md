@@ -2,7 +2,7 @@
 
 **Ваши камеры. Ваша сеть. Ваш API.**
 
-[![Версия 0.6.0](https://img.shields.io/badge/version-0.6.0-95d75d)](CHANGELOG.md)
+[![Версия 0.6.1](https://img.shields.io/badge/version-0.6.1-95d75d)](CHANGELOG.md)
 [![Лицензия MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Локальная веб-панель и HTTP API для совместимых камер O-Kam Pro с протоколом CS2/PPPP: видео, несколько объективов, PTZ, метаданные и проверяемые команды управления.
@@ -61,10 +61,12 @@ python -m okam_bridge api --port 8098
 
 Независимый общественный проект, не связанный с O-Kam или VStarcam. Лицензия [MIT](LICENSE); происхождение стороннего кода — [THIRD_PARTY.md](THIRD_PARTY.md).
 
-### Docker Desktop (macOS / Windows)
+### macOS
 
 ```sh
-docker compose -f compose.yaml -f compose.desktop.yaml up -d
+./start-macos.sh
 ```
 
-В этом варианте web-порт публикуется обычным способом, API остаётся внутри Docker. Укажите IP камеры вручную: LAN broadcast может не проходить через NAT виртуальной машины. Для Compose требуется поддержка тега `!reset` (версия 2.24.4+).
+Нужны Python 3.11+, FFmpeg и Docker Desktop. Мост запускается непосредственно в macOS, web-панель остаётся отдельным контейнером. Это обходит блокировку ответов камеры с динамических UDP-портов в Docker Desktop. Настройки портов берутся из `.env`. Логи и PID моста находятся в `.runtime/`; этот каталог исключён из Git.
+
+All-container вариант `compose.desktop.yaml` остаётся экспериментальным: указание IP камеры не гарантирует доступность UDP через виртуальную сеть.

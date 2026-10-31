@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import hashlib
 import ipaddress
 import secrets
+import re
 import threading
 import time
 from .vendor.account import Eye4AccountClient, AccountDevice, AccountError
@@ -124,6 +125,25 @@ def private_ipv4(value):
     return str(address)
 
 
+def native_credentials(record, account_id, decoder):
+    """Cloud plaintext/external access and dual-auth native secrets may coexist."""
+    password = record.device.device_password
+    security = record.device.security
+    encrypted = bool(security) and (
+        not password or bool(re.fullmatch(r"[0-9a-fA-F]{32}", security))
+    )
+    if encrypted:
+        if decoder is None:
+            raise WorkspaceError("password_decoder_required")
+        try:
+            password = decoder.decode(security, record.check_value or account_id)
+        except CredentialError as e:
+            raise WorkspaceError(str(e)) from None
+    if not password:
+        raise WorkspaceError("native_credentials_unavailable")
+    return password, encrypted
+
+
 class LANBackend:
     def __init__(self, ffmpeg, credential_client=None):
         self.ffmpeg = ffmpeg
@@ -134,17 +154,7 @@ class LANBackend:
         if len(uid) != 15:
             raise WorkspaceError("unsupported_protocol")
         parameter = get_service_parameter(uid)
-        password = record.device.device_password
-        encrypted = not password and bool(record.device.security)
-        if encrypted:
-            try:
-                password = self.decoder.decode(
-                    record.device.security, record.check_value or account_id
-                )
-            except CredentialError as e:
-                raise WorkspaceError(str(e)) from None
-        if not password:
-            raise WorkspaceError("native_credentials_unavailable")
+        password, encrypted = native_credentials(record, account_id, self.decoder)
         config = {
             "id": record.id,
             "name": record.device.name,
@@ -427,16 +437,9 @@ class AccountWorkspace:
             r = self.records.get(camera_id)
             if r is None:
                 raise KeyError(camera_id)
-            password = r.device.device_password
-            if not password and r.device.security:
-                try:
-                    password = self.backend.decoder.decode(
-                        r.device.security, r.check_value or self.account_id
-                    )
-                except CredentialError as e:
-                    raise WorkspaceError(str(e)) from None
-            if not password:
-                raise WorkspaceError("native_credentials_unavailable")
+            password, _ = native_credentials(
+                r, self.account_id, getattr(self.backend, "decoder", None)
+            )
             return {"username": "admin", "password": password}
 
     def control(self, camera_id, action, args=None):

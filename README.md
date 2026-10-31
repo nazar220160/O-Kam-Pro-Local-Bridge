@@ -2,7 +2,7 @@
 
 **Your cameras. Your network. Your API.**
 
-[![Version 0.6.0](https://img.shields.io/badge/version-0.6.0-95d75d)](CHANGELOG.md)
+[![Version 0.6.1](https://img.shields.io/badge/version-0.6.1-95d75d)](CHANGELOG.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![API reference](https://img.shields.io/badge/API-OpenAPI_3.1-527ac9)](docs/api.md)
 
@@ -52,7 +52,9 @@ WEB_PORT=8080
 BRIDGE_PORT=8098
 ```
 
-Then run `docker compose up -d` again. Read the [deployment guide](docs/deployment.md) before exposing a listener beyond your machine. For Docker Desktop on macOS/Windows, use `docker compose -f compose.yaml -f compose.desktop.yaml up -d`. This publishes the dashboard normally and keeps the API internal. Enter the camera IP explicitly; UDP broadcast discovery may not cross Docker NAT. A native API is an alternative if camera transport cannot traverse the VM network.
+Then run `docker compose up -d` again. Read the [deployment guide](docs/deployment.md) before exposing a listener beyond your machine. On **macOS**, run `./start-macos.sh` instead: it starts the camera API natively and the dashboard in Docker. Python 3.11+, FFmpeg and Docker Desktop are required. This avoids Docker Desktop NAT dropping replies from cameras' dynamic UDP ports. The same `.env` port settings apply.
+
+`compose.desktop.yaml` is an experimental all-container alternative; explicit camera IP alone does not guarantee UDP reachability through Docker Desktop. Use the native macOS launcher if the camera is unreachable from the VM.
 
 ## Native API
 

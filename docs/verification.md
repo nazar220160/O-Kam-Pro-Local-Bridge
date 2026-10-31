@@ -14,3 +14,13 @@ Checks performed on 2026-10-31:
 - Tracked source was checked for private configuration, captures, proprietary executables and known local decoder/config secrets. None were included.
 
 The initial GitHub Actions run did not start its jobs: GitHub reported an account billing/spending-limit restriction. No hosted CI pass is claimed. The workflow is configured to repeat Python, frontend, schema and Compose checks when runners are available. A passing CI run does not establish compatibility with all physical cameras.
+
+
+## 0.6.1 follow-up
+
+The updated macOS suite passed all 120 tests. All three frontend Node suites and the OpenAPI contract validation passed again.
+
+- Same code and camera: native macOS UDP discovery/handshake succeeded twice; Docker bridge and host networking each failed twice with no LAN reply.
+- After enabling plaintext access, the account supplied both ordinary and encrypted credentials. The ordinary candidate was rejected by native authentication; decoding the account-issued security credential authenticated and produced a real H.264 frame.
+- The fixed native macOS API, accessed through the Docker dashboard proxy, reached streaming and returned valid JPEG snapshots for all three lenses. The diagnostic session was logged out; no persistent camera settings were changed.
+- Regressions cover encrypted credential precedence, matching explicit credential reveal, unchanged legacy plaintext-only behavior, native loopback/gateway isolation, stable runtime token, macOS Compose routing and inherited access-token environment isolation.

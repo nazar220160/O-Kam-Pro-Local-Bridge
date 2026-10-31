@@ -38,15 +38,23 @@ docker compose down
 
 Stopping or restarting the API discards account sessions and active connections. The named gateway volume survives `down`; `down -v` deletes it, and the next startup creates a new token. Before sharing logs, remove identifiers, private addresses and any secrets.
 
-## Docker Desktop
+## macOS: native camera API, Docker dashboard
 
-Use Compose 2.24.4+ and the supplied override:
+Docker Desktop NAT can discard the camera's first UDP reply because it comes from a dynamic source port rather than the discovery port. An explicit camera IP does not fix this behavior. The same camera and bridge code may work directly on macOS while failing inside both bridge and host Docker networking.
+
+Use:
 
 ```sh
-docker compose -f compose.yaml -f compose.desktop.yaml up -d
+./start-macos.sh
 ```
 
-This uses an ordinary Docker network with a published dashboard port and an internal API. The native UDP connection must traverse Docker Desktop NAT; use an explicit private camera IPv4 address because broadcast discovery may not cross it. If the VM cannot reach the camera transport, run the API natively. Linux should use the default host-network Compose file for direct LAN access. If the dashboard port is occupied, set `WEB_PORT` to a free port in `.env`.
+Prerequisites: Python 3.11+, FFmpeg (`brew install ffmpeg`) and running Docker Desktop. The script prepares a local Python environment, starts the protected API on macOS loopback, stops the previous container API, and starts only the Docker web service using `compose.macos.yaml`. Nginx reaches the API through `host.docker.internal`; the browser still uses one origin. `.env` controls `WEB_PORT` and `BRIDGE_PORT` as before.
+
+Runtime files are under `.runtime/`: API log, PID and gateway token. The directory is mode 0700 and excluded from Git; only the gateway file is mounted read-only into nginx. Account sessions remain memory-only. A machine reboot requires rerunning `./start-macos.sh`. `docker compose down` alone does not stop the native API process.
+
+If updating an already running native API, stop that process before rerunning the launcher. A listener using a different gateway token is rejected instead of silently attaching to it. The launcher does not change global Docker Desktop settings or restart unrelated containers.
+
+`compose.desktop.yaml` remains an experimental all-container option for Docker Desktop; UDP camera access is not guaranteed. Linux should use the standard host-network Compose deployment.
 
 ## Native API and separate web frontend
 

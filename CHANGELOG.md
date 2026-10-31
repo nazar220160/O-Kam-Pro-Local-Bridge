@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+- Fix native password selection when the account returns both plaintext external-access credentials and encrypted dual-auth credentials. Native video uses the encrypted credential and current account authorization; explicit credential reveal follows the same selection.
+- Add a macOS launcher with the API on the host and the independent web panel in Docker, avoiding Docker Desktop UDP reachability failures.
+- Add regression coverage for dual credentials, legacy plaintext cameras and macOS deployment isolation.
+
+
 ## 0.6.0
 
 - Separate standalone Python HTTP API from the static nginx dashboard.
