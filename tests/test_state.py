@@ -201,3 +201,32 @@ class StateTests(unittest.TestCase):
             manager, exports, state = self.restart()
             wait_for(lambda: record.called)
             self.assertEqual(record.call_args.args[1:], (cid, policy))
+
+    def test_expired_inactive_session_is_not_revived_by_restart(self):
+        manager, exports, state = self.system()
+        token = manager.login("first", "valid-test")
+        workspace = manager.get(token)
+        workspace.expires_at = time.time() - 1
+        state.checkpoint()
+        manager, exports, state = self.restart()
+        self.assertIsNone(manager.get(token))
+
+    def test_reapply_and_off_on_preserve_nvr_credentials(self):
+        manager, exports, state = self.system()
+        token, workspace, cid = self.connect(manager)
+        options = {"enabled": True, "onvif": False, "advertise_host": "192.168.20.1"}
+        before = exports.configure(workspace, cid, options)
+        credentials = exports.credentials(workspace, cid)
+        self.assertEqual(
+            exports.configure(workspace, cid, options)["export_id"], before["export_id"]
+        )
+        exports.disable(workspace, cid)
+        self.assertEqual(
+            exports.configure(workspace, cid, options)["export_id"], before["export_id"]
+        )
+        self.assertEqual(exports.credentials(workspace, cid), credentials)
+        from okam_bridge.vendor.account import AccountError
+
+        with self.assertRaises(AccountError):
+            manager.login("first", "wrong")
+        self.assertIs(manager.get(token), workspace)

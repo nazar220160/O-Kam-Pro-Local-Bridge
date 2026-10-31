@@ -13,6 +13,7 @@ services:
     network_mode: none
     restart: "no"
   bridge:
+    stop_grace_period: 45s
     image: okam-local-bridge:local
     build: .
     network_mode: host
