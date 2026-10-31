@@ -76,6 +76,8 @@ These checks cover the tested camera, installed Frigate build and measured netwo
 
 ## 0.10.0 encrypted restart recovery
 
+- Final macOS / Python 3.14 suite: 246 tests passed. Linux x86_64 / Python 3.12 runtime with networking disabled and read-only root: 246 tests ran, seven optional development/Docker-CLI checks skipped, all remaining tests passed. All five Node suites and OpenAPI validation passed.
+
 - New regressions cover cookie/Bearer and player token restoration, unchanged publication paths/passwords, saved camera IP/quality, pending settings overriding cached transport settings, recording policy resumption, delayed MediaMTX startup, durable off/disconnect/logout, inactive expiry, same-account re-login, state-file tampering and missing-key failures.
 - On the actual Linux server, the existing authorized Frigate publication ID/password were migrated into encrypted state without changing Frigate's source configuration. All three old RTSP lens URLs again returned H.264 and AAC.
 - A real API-container restart and a forced container recreation with the named state volume retained the same browser cookie, player token, publication ID/password and camera preferences. The API accepted the unchanged cookie, reconnected the physical camera and restored ONVIF/RTSP automatically. Independent Frigate probes read all three old lens URLs after both operations. During cold publisher startup an immediate probe can see a transient not-ready response; retrying while restoration completes succeeded without any NVR configuration change.
