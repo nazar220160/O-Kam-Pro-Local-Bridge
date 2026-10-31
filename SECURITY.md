@@ -1,6 +1,6 @@
 # Security
 
-This bridge handles account credentials, native camera passwords, live video and commands that can change persistent camera settings. Run it on a trusted machine and private network.
+This bridge handles account credentials, native camera passwords, live video, persisted recordings and commands that can change persistent camera settings. Run it on a trusted machine and private network.
 
 ## Deployment boundaries
 
@@ -25,3 +25,12 @@ Closing a tab keeps a publication running in RAM. Logout, camera disconnect, exp
 Use [GitHub's private vulnerability reporting](https://github.com/nazar220160/O-Kam-Pro-Local-Bridge/security/advisories/new) if enabled. If it is unavailable, open a minimal public issue asking the maintainer for a private contact method; omit exploit details and all secrets until a private channel is established.
 
 Include the affected version, deployment mode, impact and a minimal redacted reproduction. Do not attach real account passwords, session cookies, gateway tokens, camera identifiers or private footage. No response-time or long-term security-support guarantee is made; use the latest release and review the [changelog](CHANGELOG.md).
+
+
+## Recordings and ONVIF control
+
+ONVIF publication credentials authorize supported PTZ/preset writes as well as live video, events and retained recordings for that publication. Share them only with trusted clients. Movement has a bounded watchdog; this does not make an untrusted control client safe.
+
+The private recordings directory contains a SQLite manifest and unencrypted video. Directories/files use restricted permissions, records are scoped by stable account and camera identity, and API downloads require an account session. Player-only credentials do not grant archive downloads. MediaMTX replay authorization checks the exact registered publication/clip and uses the current publication credential. Logout/off revokes network publication and stops workers, while completed footage remains on disk for later account access and retention cleanup. Protect backups and the recordings volume; deleting a session does not erase footage.
+
+SD import reads camera files without deleting or formatting the card. Avoid sharing diagnostics with SD indexes, filenames or recorded images. Storage limits are per camera and active files require headroom; monitor total disk usage.

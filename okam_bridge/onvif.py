@@ -1,8 +1,9 @@
 """Small, read-only bridge ONVIF facade; not an ONVIF certified device.
 
 Only bridge exports are addressed here. No native camera configuration is read or
-changed. PTZ, events, recording, configuration writes and multicast RTP are not
-implemented or advertised. HTTP Basic is intended for a trusted LAN only.
+changed. PTZ, events and completed recording search/replay are bridged through
+explicit native controls and private server storage. Unsupported configuration
+writes, absolute positioning and multicast RTP are not advertised. HTTP Basic is intended for a trusted LAN only.
 """
 
 import base64
@@ -28,6 +29,12 @@ NS = {
     "d": "http://schemas.xmlsoap.org/ws/2005/04/discovery",
     "dn": "http://www.onvif.org/ver10/network/wsdl",
     "wsse": "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd",
+    "tptz": "http://www.onvif.org/ver20/ptz/wsdl",
+    "trc": "http://www.onvif.org/ver10/recording/wsdl",
+    "tse": "http://www.onvif.org/ver10/search/wsdl",
+    "trp": "http://www.onvif.org/ver10/replay/wsdl",
+    "tev": "http://www.onvif.org/ver10/events/wsdl",
+    "wsnt": "http://docs.oasis-open.org/wsn/b-2",
     "wsu": "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd",
 }
 for _prefix, _uri in NS.items():
@@ -160,7 +167,7 @@ class _Handler(BaseHTTPRequestHandler):
     def target(self):
         parts = urlsplit(self.path)
         match = re.fullmatch(
-            r"/onvif/([A-Za-z0-9_-]+)/((?:device|media|ptz)_service|snapshot\.jpg)",
+            r"/onvif/([A-Za-z0-9_-]+)/((?:device|media|ptz|events|recording|search|replay)_service|subscriptions/[A-Za-z0-9_-]+|snapshot\.jpg)",
             parts.path,
         )
         if not match:
@@ -317,7 +324,24 @@ class _Handler(BaseHTTPRequestHandler):
                 raise ValueError()
             request = body[0]
             action = request.tag.split("}")[-1]
-            expected = NS["tds"] if service == "device_service" else NS["trt"]
+            prefix_map = {
+                "device_service": "tds",
+                "media_service": "trt",
+                "ptz_service": "tptz",
+                "events_service": "tev",
+                "recording_service": "trc",
+                "search_service": "tse",
+                "replay_service": "trp",
+            }
+            subscription = service.startswith("subscriptions/")
+            prefix = (
+                "wsnt"
+                if subscription and action in ("Renew", "Unsubscribe")
+                else "tev" if subscription else prefix_map.get(service)
+            )
+            if not prefix:
+                raise ValueError()
+            expected = NS[prefix]
             if request.tag != "{" + expected + "}" + action:
                 raise ValueError()
         except (ET.ParseError, ValueError):
@@ -330,12 +354,33 @@ class _Handler(BaseHTTPRequestHandler):
             return
         try:
             root, body = envelope()
-            prefix = "tds" if service == "device_service" else "trt"
+            prefix = prefix
             response = node(body, prefix + ":" + action + "Response")
             if service == "device_service":
                 self.device(response, action, item)
             elif service == "media_service":
                 self.media(response, action, item, request)
+            elif service == "ptz_service":
+                from .onvif_ptz import handle_ptz
+
+                handle_ptz(response, action, item, request, self.server.registry)
+            elif service in ("recording_service", "search_service", "replay_service"):
+                from .onvif_archive import handle_archive
+
+                handle_archive(
+                    response, service, action, item, request, self.server.registry
+                )
+            elif service == "events_service" or subscription:
+                from .onvif_events import handle_events
+
+                handle_events(
+                    response,
+                    action,
+                    item,
+                    request,
+                    self.server.registry,
+                    service.split("/", 1)[1] if subscription else None,
+                )
             else:
                 raise ValueError("Unsupported service")
             self.send(200, ET.tostring(root, encoding="utf-8", xml_declaration=True))
@@ -375,7 +420,16 @@ class _Handler(BaseHTTPRequestHandler):
             ]:
                 node(r, "tds:" + key, value)
         elif action == "GetServices":
-            for name, prefix in [("device", "tds"), ("media", "trt")]:
+            services = [("device", "tds"), ("media", "trt")]
+            if item.get("ptz"):
+                services.append(("ptz", "tptz"))
+            if item.get("events"):
+                services.append(("events", "tev"))
+            if item.get("recording"):
+                services.extend(
+                    [("recording", "trc"), ("search", "tse"), ("replay", "trp")]
+                )
+            for name, prefix in services:
                 s = node(r, "tds:Service")
                 node(s, "tds:Namespace", NS[prefix])
                 node(s, "tds:XAddr", url(item, name))
@@ -388,10 +442,59 @@ class _Handler(BaseHTTPRequestHandler):
             node(device, "tt:XAddr", url(item, "device"))
             media = node(caps, "tt:Media")
             node(media, "tt:XAddr", url(item, "media"))
+            if item.get("ptz"):
+                ptz = node(caps, "tt:PTZ")
+                node(ptz, "tt:XAddr", url(item, "ptz"))
+            if item.get("events"):
+                events = node(caps, "tt:Events")
+                node(events, "tt:XAddr", url(item, "events"))
+                node(events, "tt:WSSubscriptionPolicySupport", "false")
+                node(events, "tt:WSPullPointSupport", "true")
+                node(
+                    events, "tt:WSPausableSubscriptionManagerInterfaceSupport", "false"
+                )
+            if item.get("recording"):
+                extension = node(caps, "tt:Extension")
+                recording = node(extension, "tt:Recording")
+                node(recording, "tt:XAddr", url(item, "recording"))
+                node(recording, "tt:ReceiverSource", "false")
+                node(recording, "tt:MediaProfileSource", "true")
+                node(recording, "tt:DynamicRecordings", "false")
+                node(recording, "tt:DynamicTracks", "false")
+                node(recording, "tt:MaxStringLength", 256)
+                search = node(extension, "tt:Search")
+                node(search, "tt:XAddr", url(item, "search"))
+                node(search, "tt:MetadataSearch", "false")
+                replay = node(extension, "tt:Replay")
+                node(replay, "tt:XAddr", url(item, "replay"))
             stream = node(media, "tt:StreamingCapabilities")
             node(stream, "tt:RTPMulticast", "false")
             node(stream, "tt:RTP_TCP", "true")
             node(stream, "tt:RTP_RTSP_TCP", "true")
+            order = [
+                "Analytics",
+                "Device",
+                "Events",
+                "Imaging",
+                "Media",
+                "PTZ",
+                "Extension",
+            ]
+            caps[:] = sorted(caps, key=lambda e: order.index(e.tag.rsplit("}", 1)[-1]))
+            if item.get("recording"):
+                extorder = [
+                    "DeviceIO",
+                    "Display",
+                    "Recording",
+                    "Search",
+                    "Replay",
+                    "Receiver",
+                    "AnalyticsDevice",
+                    "Extensions",
+                ]
+                extension[:] = sorted(
+                    extension, key=lambda e: extorder.index(e.tag.rsplit("}", 1)[-1])
+                )
         elif action == "GetScopes":
             for scope in scopes(item):
                 s = node(r, "tds:Scopes")
@@ -429,7 +532,7 @@ class _Handler(BaseHTTPRequestHandler):
         node(multicast, "tt:AutoStart", "false")
         node(c, "tt:SessionTimeout", "PT60S")
 
-    def profile(self, r, name, p):
+    def profile(self, r, name, p, ptz=False):
         profile = node(r, name, token=p["token"], fixed="true")
         node(profile, "tt:Name", p["token"])
         source = node(profile, "tt:VideoSourceConfiguration", token=p["token"])
@@ -438,19 +541,23 @@ class _Handler(BaseHTTPRequestHandler):
         node(source, "tt:SourceToken", p["token"])
         node(source, "tt:Bounds", x=0, y=0, width=p["width"], height=p["height"])
         self.encoder(profile, "tt:VideoEncoderConfiguration", p)
+        if ptz:
+            from .onvif_ptz import configuration
+
+            configuration(profile, "tt:PTZConfiguration", p)
 
     def media(self, r, action, item, request):
         profiles = item["profiles"]
         if action == "GetProfiles":
             for p in profiles:
-                self.profile(r, "trt:Profiles", p)
+                self.profile(r, "trt:Profiles", p, item.get("ptz", False))
         elif action in ("GetProfile", "GetStreamUri", "GetSnapshotUri"):
             token = request.findtext("trt:ProfileToken", namespaces=NS)
             p = next((p for p in profiles if p["token"] == token), None)
             if p is None:
                 raise ValueError()
             if action == "GetProfile":
-                self.profile(r, "trt:Profile", p)
+                self.profile(r, "trt:Profile", p, item.get("ptz", False))
             else:
                 uri = node(r, "trt:MediaUri")
                 node(

@@ -2,9 +2,9 @@
 
 Bridge publication lets a VLC or NVR client consume an already connected camera even when the camera has no usable native RTSP/ONVIF service. It does not change native camera settings.
 
-RTSP runs through separate MediaMTX 1.21.2 over TCP, normally on port 8554. FFmpeg copies H.264 without encoding; audio is not published. The optional bridge ONVIF facade exposes read-only Device/Media operations, per-observed-lens profiles and authenticated JPEG snapshots, normally on port 8899. WS-Discovery is best effort when LAN multicast works.
+RTSP runs through separate MediaMTX 1.21.2 over TCP, normally on port 8554. FFmpeg copies H.264 without encoding; audio is not published. The optional bridge ONVIF facade exposes Device/Media operations, per-observed-lens profiles, authenticated JPEG snapshots, bounded PTZ, PullPoint events and completed-clip Recording/Search/Replay services, normally on port 8899. WS-Discovery is best effort when LAN multicast works.
 
-There is no ONVIF PTZ, events, recording service, configuration-write support or full ONVIF certification. Compatibility depends on the client; profiles describe observed lenses rather than independently configurable high/low encoders. Some metadata has fallback values until the camera reports it. Do not treat successful enablement as proof of VLC/NVR compatibility.
+Camera encoder configuration writes, absolute/relative PTZ positioning, ONVIF recording-job creation, reverse playback and RTSP clock seeking are unsupported. Full ONVIF certification is not claimed. Compatibility depends on the client; profiles describe observed lenses rather than independently configurable high/low encoders. Some metadata has fallback values until the camera reports it. Do not treat successful enablement as proof of VLC/NVR compatibility.
 
 ## Enable from the dashboard
 
@@ -61,3 +61,25 @@ The ONVIF listener opens lazily on the first ONVIF enable. It remains bound unti
 `rtsp_service_unavailable` means the configured MediaMTX listener is unreachable; check that service and its internal URL/port. `onvif_port_unavailable` means the API could not bind the ONVIF listener. A publication can remain in `starting` until H.264 frames arrive. Check the export status, observed lenses and MediaMTX/API logs; redact identifiers and secrets before sharing diagnostics. A `discovery_error` does not prevent manual ONVIF setup when the HTTP endpoint is reachable.
 
 For HTTP configuration, credential reveal and MediaMTX callback details, see the [API guide](api.md).
+
+
+## PTZ and events
+
+PTZ is advertised only when the connected camera reports a motor. ContinuousMove maps normalized pan/tilt velocity to short serialized native pulses. Every move has a watchdog (maximum five seconds); Stop cancels the move and sends a native stop. GetStatus reports movement without inventing absolute coordinates. Native preset slots 1–5 are read and changed only through confirmed camera responses. Unsupported movement spaces and zoom return SOAP faults.
+
+PullPoint subscriptions support topic filters, synchronization, renewal and unsubscribe. The bridge polls actual native state approximately every two seconds. Generic alarm notifications preserve the raw firmware value; they do not claim its meaning. Motion notifications are generated only when firmware supplies an explicit recognized motion-state field. This camera may therefore expose raw alarms without motion notifications. There is no inferred video analytics or historical event persistence. Subscriptions are bounded, expire and are revoked with publication.
+
+## Server and SD archives
+
+In the same dashboard service tab, use the separate archive panel:
+
+1. Enable bridge publication first. Server recording and SD import are off by default.
+2. For server recording, choose segment duration (5–3600 seconds), retention (1–365 days) and the camera storage quota (1 MiB–1 TiB). Defaults are 60 seconds, seven days and 10 GiB. Start recording explicitly. Each observed lens is stored separately as H.264 copied into Matroska; only completed, probeable files enter the manifest. A final partial segment is finalized on stop where possible.
+3. For SD, load available dates, list the chosen date and import a selected clip (1–300 seconds). The bridge reads the camera index and downloads into its private cache through a separate authenticated native session. It never formats the card or deletes camera files. Multi-lens clips become separate cached records. Firmware compatibility is required, and another camera session or poor connection can interrupt import.
+4. Download a completed MKV or request its replay address. Browser MKV playback depends on browser/codec support; use VLC when necessary. Replay uses the current publication credentials and RTSP/TCP.
+
+ONVIF Recording/Search enumerates completed server recordings and imported SD cache files. Uncached SD entries must first be listed/imported through the dashboard or HTTP API; they are not advertised as playable ONVIF records. Each clip/lens is a separate recording token. GetReplayUri starts ordinary forward playback from the clip beginning. A new request for the same clip restarts its publisher. These services do not implement a continuous Profile G timeline or reverse/seek semantics.
+
+Recordings persist across logout/restart, scoped by account and camera; publication credentials, recording workers, subscriptions and replay processes do not. Sign in again to access retained files, reconnect and re-enable publication for ONVIF replay. Recording does not automatically resume after restart. Age retention applies to server recordings; imported SD clips keep their original timestamps and are not deleted merely because the source is old. Both sources share the camera quota, evicted oldest first when a new file is added. Limits are enforced at completion/import, so active segments/imports need additional free disk space. SD import requires at least 2 GiB free, with at most two active imports globally. These are per-camera limits, not a global disk reservation.
+
+Linux Compose stores the private SQLite manifest and clips in the `recordings` named volume. The native macOS default is `.runtime/recordings`; override with `BRIDGE_RECORDINGS_DIR`. Back up/protect this directory as private footage. `docker compose down -v` deletes named-volume recordings. Explicit logout/off/disconnect stops active recording and replay but preserves completed files.

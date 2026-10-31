@@ -12,6 +12,8 @@ import threading
 import time
 import weakref
 from urllib.parse import urlsplit, quote
+from .export_motion import MotionController
+from .onvif_events import EventBroker
 
 
 class ExportError(ValueError):
@@ -166,6 +168,9 @@ class Publication:
     publishers: dict = field(default_factory=dict)
     thread: object = None
     lock: object = field(default_factory=threading.RLock)
+    motion: object = None
+    event_thread: object = None
+    alarm_state: object = None
 
 
 class ExportManager:
@@ -214,6 +219,12 @@ class ExportManager:
         self.onvif_server = None
         self.discovery = None
         self.onvif_lock = threading.Lock()
+        self.events = EventBroker()
+        from .archive import ArchiveManager
+        from .onvif_archive import ArchiveSearch
+
+        self.archive = ArchiveManager(self)
+        self.searches = ArchiveSearch()
 
     def _probe(self):
         try:
@@ -333,6 +344,12 @@ class ExportManager:
                     self.entries.pop(old.export_id, None)
                 self.entries[entry.export_id] = entry
         self._stop_entries(previous)
+        entry.motion = MotionController(lambda: self._camera(entry))
+        if entry.onvif:
+            entry.event_thread = threading.Thread(
+                target=self._observe_events, args=(entry,), daemon=True
+            )
+            entry.event_thread.start()
         entry.thread = threading.Thread(
             target=self._supervise, args=(entry,), daemon=True
         )
@@ -412,7 +429,9 @@ class ExportManager:
             "onvif_port": self.onvif_port,
             "rtsp": True,
             "onvif": entry.onvif,
-            "ptz": False,
+            "ptz": bool(status.get("metadata", {}).get("motor")),
+            "events": bool(entry.onvif),
+            "recording": bool(entry.onvif),
             "state": (
                 "waiting"
                 if not camera
@@ -479,6 +498,83 @@ class ExportManager:
             if e.onvif and not e.stop.is_set()
         ]
 
+    def _observe_events(self, entry):
+        while not entry.stop.is_set():
+            camera = self._camera(entry)
+            if camera:
+                try:
+                    result = camera.control("query", {"section": "status"})
+                    if entry.stop.is_set():
+                        break
+                    values = result.get("parameters", {})
+                    alarm = values.get("alarm_status")
+                    if alarm is not None and str(alarm).lstrip("-").isdigit():
+                        alarm = int(alarm)
+                        if alarm != entry.alarm_state:
+                            # Preserve the native code; do not invent a motion interpretation.
+                            self.events.publish(
+                                entry.export_id,
+                                "tns1:Device/Trigger/Alarm",
+                                {"rawAlarm": "alarm_status"},
+                                {"State": str(alarm)},
+                            )
+                            entry.alarm_state = alarm
+                    for key in ("motion_detected", "motion_alarm", "is_motion"):
+                        if key in values and str(values[key]) in ("0", "1"):
+                            state = str(values[key]) == "1"
+                            previous = getattr(entry, "motion_observation", None)
+                            if previous is not state:
+                                self.events.publish(
+                                    entry.export_id,
+                                    "tns1:VideoSource/MotionAlarm",
+                                    {"VideoSourceConfigurationToken": "lens0"},
+                                    {"IsMotion": str(state).lower()},
+                                )
+                                entry.motion_observation = state
+                            break
+                except (ValueError, OSError):
+                    pass
+            entry.stop.wait(2)
+
+    def ptz(self, export_id, profile_token, operation, parameters):
+        with self.lock:
+            entry = self.entries.get(export_id)
+        if not entry or entry.stop.is_set():
+            raise ValueError("export_not_enabled")
+        view = self._view(entry)
+        if not view["ptz"]:
+            raise ValueError("ptz_not_supported")
+        profile = next(
+            (p for p in view["profiles"] if p["token"] == profile_token), None
+        )
+        if profile is None:
+            raise ValueError("invalid_profile")
+        motion = entry.motion
+        if operation == "continuous_move":
+            motion.move(
+                profile["lens"],
+                parameters["x"],
+                parameters["y"],
+                parameters.get("timeout", 0.6),
+            )
+            return {}
+        if operation == "stop":
+            motion.stop(force=True)
+            return {}
+        if operation == "status":
+            return {"moving": motion.moving()}
+        if operation in ("get_presets", "set_preset", "goto_preset", "remove_preset"):
+            return motion.preset(
+                operation, parameters.get("slot"), parameters.get("name")
+            )
+        raise ValueError("unsupported_ptz_operation")
+
+    def archive_records(self, export_id):
+        return self.archive.records(export_id)
+
+    def archive_replay(self, export_id, token):
+        return self.archive.replay(export_id, token)
+
     def snapshot(self, export_id, lens):
         with self.lock:
             entry = self.entries.get(export_id)
@@ -512,14 +608,20 @@ class ExportManager:
         ):
             return False
         match = re.fullmatch(r"(e[0-9a-f]{20})/lens(\d{1,2})", path)
-        if not match:
+        replay = re.fullmatch(r"(e[0-9a-f]{20})/replay/([A-Za-z0-9_-]{16,64})", path)
+        if not match and not replay:
             return False
+        target = match or replay
         with self.lock:
-            entry = self.entries.get(match[1])
+            entry = self.entries.get(target[1])
         if not entry or entry.stop.is_set():
             return False
         camera = self._camera(entry)
-        if not camera or int(match[2]) not in camera.status().get("lenses", []):
+        if (
+            not camera
+            or (match and int(match[2]) not in camera.status().get("lenses", []))
+            or (replay and not self.archive.replay_allowed(replay[1], replay[2]))
+        ):
             return False
         if action == "publish":
             return user == "publish" and hmac.compare_digest(
@@ -548,6 +650,16 @@ class ExportManager:
 
     def _stop_entries(self, entries):
         for entry in entries:
+            self.events.drop(entry.export_id)
+            self.searches.drop(entry.export_id)
+            self.archive.drop(entry)
+            if entry.motion:
+                try:
+                    entry.motion.stop()
+                except (ValueError, OSError):
+                    pass
+            if entry.event_thread:
+                entry.event_thread.join(timeout=13)
             with entry.lock:
                 workers = list(entry.publishers.values())
             for worker in workers:
@@ -563,6 +675,7 @@ class ExportManager:
             workspaces = {e.workspace for e in self.entries.values()}
         for workspace in workspaces:
             self.disable(workspace)
+        self.archive.close()
         with self.onvif_lock:
             if self.discovery:
                 self.discovery.close()

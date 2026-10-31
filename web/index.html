@@ -562,7 +562,32 @@ get_status.cgi?</textarea
                 <button id="bridge-export-copy-password" class="text-button" type="button">Копировать пароль</button>
                 <button id="bridge-export-hide" class="ghost" type="button">Скрыть данные</button>
               </div>
-              <p class="note">После закрытия вкладки экспорт продолжает работать. Выход из аккаунта или отключение камеры выключает его. После перезапуска сервера включите экспорт заново. ONVIF моста не сертифицирован; совместимость зависит от NVR. Управление PTZ через экспорт недоступно.</p>
+              <p class="note">После закрытия вкладки экспорт продолжает работать. Выход из аккаунта или отключение камеры выключает его. После перезапуска сервера включите экспорт заново. ONVIF моста не сертифицирован; совместимость зависит от NVR. Поддерживаемые PTZ-команды, события и чтение архива зависят от камеры. Абсолютное позиционирование и обратное воспроизведение не поддерживаются.</p>
+            </section>
+            <section class="box bridge-archive" aria-labelledby="archive-title">
+              <div class="eyebrow">АРХИВ ВИДЕО</div>
+              <h2 id="archive-title">Запись на сервере и карта SD</h2>
+              <p class="muted">Запись на сервере по умолчанию выключена. Для запуска откройте видео камеры и включите экспорт моста. Просмотр списка SD не скачивает видео.</p>
+              <div class="settings-grid">
+                <div><label for="archive-segment">Длина сегмента · секунды</label><input id="archive-segment" type="number" min="5" max="3600" value="60" /></div>
+                <div><label for="archive-retention">Хранить · дней</label><input id="archive-retention" type="number" min="1" max="365" value="7" /></div>
+                <div><label for="archive-quota">Лимит диска · МиБ</label><input id="archive-quota" type="number" min="1" max="1048576" value="10240" /></div>
+              </div>
+              <div class="control-actions"><button id="archive-start" class="primary" type="button" disabled>Включить / применить запись</button><button id="archive-stop" class="ghost" type="button" disabled>Остановить запись</button><button id="archive-refresh" class="ghost" type="button">Обновить архив</button></div>
+              <p id="archive-status" class="muted" role="status"></p>
+              <p id="archive-workers" class="note"></p>
+              <h3>Записи сервера</h3><div id="archive-server" class="archive-records"></div>
+              <h3>Скачанные фрагменты SD</h3><div id="archive-cache" class="archive-records"></div>
+              <p class="note">Файлы скачиваются в Matroska (.mkv); браузер может не поддерживать их воспроизведение. Откройте файл или RTSP-повтор в VLC. Повтор воспроизводится вперёд и использует отдельные данные входа моста, показанные выше.</p>
+              <p id="archive-replay" class="note" role="status"></p>
+              <div class="section-heading"><h3>Архив на карте SD камеры</h3><button id="archive-sd-refresh" class="ghost" type="button" disabled>Проверить SD</button></div>
+              <div class="settings-grid">
+                <div><label for="archive-sd-date">Дата на карте SD</label><select id="archive-sd-date" disabled></select></div>
+                <div><label for="archive-duration">Скачать фрагмент · секунд, 1–300</label><input id="archive-duration" type="number" min="1" max="300" value="30" /></div>
+              </div>
+              <p id="archive-sd-status" class="muted" role="status">Нажмите «Проверить SD», чтобы запросить список с камеры.</p>
+              <div id="archive-sd-records" class="archive-records"></div>
+              <h3>Задания скачивания</h3><div id="archive-jobs" class="archive-records"></div>
             </section>
             <section class="box service-intro">
               <div>
@@ -696,5 +721,6 @@ get_status.cgi?</textarea
     <script src="/app.js"></script>
     <script src="/controls.js"></script>
     <script src="/exports.js"></script>
+    <script src="/archive.js"></script>
   </body>
 </html>

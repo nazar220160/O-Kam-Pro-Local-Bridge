@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "O-Kam Pro Local Bridge API",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "license": {
       "name": "MIT"
     },
@@ -2098,7 +2098,7 @@
         "tags": [
           "Cameras"
         ],
-        "description": "Requires connected camera. Publishes original H264 for observed lenses over RTSP/TCP; ONVIF is a read-only Device/Media subset. No native camera settings are changed. Active publication keeps the camera and owning in-memory account session alive; closing a browser tab does not stop it. Logout, explicit disconnect, disabling publication or server restart revokes it. Enabling extends the account cookie lifetime while publication is active. No ONVIF certification, PTZ, events or recording facade is claimed.",
+        "description": "Requires connected camera. Publishes original H264 for observed lenses over RTSP/TCP; ONVIF exposes Device/Media, bounded PTZ when a motor is reported, PullPoint events from actual native observations, and Recording/Search/Replay for completed server/SD-cache clips. No native camera settings are changed. Active publication keeps the camera and owning in-memory account session alive; closing a browser tab does not stop it. Logout, explicit disconnect, disabling publication or server restart revokes it. Enabling extends the account cookie lifetime while publication is active. No ONVIF certification, absolute positioning, reverse playback or events inferred from video are claimed.",
         "parameters": [
           {
             "name": "camera_id",
@@ -2493,6 +2493,649 @@
             }
           }
         }
+      }
+    },
+    "/api/cameras/{camera_id}/archive": {
+      "get": {
+        "summary": "List completed server/SD-cache recordings, jobs and storage policy",
+        "operationId": "get_api_cameras_camera_id_archive",
+        "tags": [
+          "Cameras"
+        ],
+        "description": "Private persistent files are scoped to the current vendor account and camera. No file path or credentials are returned. Recording is off by default. A completed SD import appears as source=sd; cached files remain after logout but access requires the owning account.",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ID returned by the current account catalog."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionBearer": []
+          },
+          {
+            "accountCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Control server recording, import SD clip or start forward replay",
+        "operationId": "post_api_cameras_camera_id_archive",
+        "tags": [
+          "Cameras"
+        ],
+        "description": "Requires an enabled bridge publication. record explicitly starts/stops H264-copy server recording. sd_import uses only an identifier from sd_records, returns an asynchronous job, downloads at most 300 seconds and 500 MiB in a separate authenticated camera session; no SD files are deleted. replay returns RTSP URI for a completed private recording. Credentials are the current publication credentials. Server retention/quota policy is persisted per account/camera; SD cache shares quota but is not aged out using its original camera date. At most two SD download jobs run globally; 2 GiB free space required before import. File playback is forward at normal speed, not arbitrary reverse or clock-range seeking.",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ID returned by the current account catalog."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionBearer": []
+          },
+          {
+            "accountCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "record",
+                      "sd_import",
+                      "replay"
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "segment_seconds": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 3600,
+                    "default": 60
+                  },
+                  "retention_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365,
+                    "default": 7
+                  },
+                  "max_bytes": {
+                    "type": "integer",
+                    "minimum": 1048576,
+                    "maximum": 1099511627776,
+                    "default": 10737418240
+                  },
+                  "source_id": {
+                    "type": "string"
+                  },
+                  "duration": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 300,
+                    "default": 60
+                  },
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cameras/{camera_id}/archive/sd_dates": {
+      "get": {
+        "summary": "Read available SD recording dates",
+        "operationId": "get_api_cameras_camera_id_archive_sd_dates",
+        "tags": [
+          "Cameras"
+        ],
+        "description": "Read-only separate camera session; requires enabled publication and connected camera.",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ID returned by the current account catalog."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionBearer": []
+          },
+          {
+            "accountCookie": []
+          }
+        ]
+      }
+    },
+    "/api/cameras/{camera_id}/archive/sd_records": {
+      "get": {
+        "summary": "Read SD timeline entries for a date",
+        "operationId": "get_api_cameras_camera_id_archive_sd_records",
+        "tags": [
+          "Cameras"
+        ],
+        "description": "Returns actual timeline metadata and opaque source IDs; call sd_import explicitly to make a clip playable/searchable through the bridge. Does not download video automatically.",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ID returned by the current account catalog."
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{8}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionBearer": []
+          },
+          {
+            "accountCookie": []
+          }
+        ]
+      }
+    },
+    "/api/cameras/{camera_id}/archive/file/{recording_token}": {
+      "get": {
+        "summary": "Download authenticated Matroska recording with HTTP byte ranges",
+        "operationId": "get_api_cameras_camera_id_archive_file_recording_token",
+        "tags": [
+          "Cameras"
+        ],
+        "description": "Completed private recording only; cookie/Bearer account authorization required. Optional Range: bytes=start-end returns 206. Not every browser supports Matroska inline; VLC or download can be used.",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ID returned by the current account catalog."
+          },
+          {
+            "name": "recording_token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "video/x-matroska": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Requested byte range",
+            "content": {
+              "video/x-matroska": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionBearer": []
+          },
+          {
+            "accountCookie": []
+          }
+        ]
       }
     },
     "/api/cameras/{camera_id}/snapshot.jpg": {

@@ -23,10 +23,12 @@ services:
       BRIDGE_RTSP_INTERNAL_URL: "rtsp://127.0.0.1:${RTSP_PORT:-8554}"
       BRIDGE_RTSP_PORT: "${RTSP_PORT:-8554}"
       BRIDGE_ONVIF_PORT: "${ONVIF_PORT:-8899}"
+      BRIDGE_RECORDINGS_DIR: /recordings
       BRIDGE_ONVIF_LISTEN: "${ONVIF_LISTEN:-0.0.0.0}"
     volumes:
       - gateway:/run/bridge:ro
       - ./secrets:/run/credentials:ro
+      - recordings:/recordings
     depends_on:
       init:
         condition: service_completed_successfully
@@ -80,3 +82,4 @@ services:
     security_opt: [no-new-privileges:true]
 volumes:
   gateway:
+  recordings:

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0
+
+- Extend bridge-owned ONVIF with bounded continuous pan/tilt, Stop, native presets and truthful status, plus authenticated PullPoint subscriptions backed by observed native alarms.
+- Add opt-in per-lens server recording, private persistent manifest/storage, retention and quotas.
+- Add SD date/index enumeration and bounded multi-lens clip import without modifying SD files.
+- Expose completed server/SD clips through authenticated ranged downloads, ONVIF Recording/Search and forward RTSP Replay. Add a separate archive panel and documented HTTP routes.
+- Persist recordings in a dedicated Docker volume; preserve native camera-service controls and the native macOS UDP path.
+- Absolute PTZ, reverse/clock-seek replay, audio and ONVIF certification remain unsupported.
+
+
 ## 0.7.0
 
 - Add optional bridge-owned RTSP/TCP publication through the separate MediaMTX 1.21.2 service, copying H.264 without encoding.

@@ -1,3 +1,4 @@
 -r requirements.txt
 black==25.1.0
 openapi-spec-validator==0.7.2
+onvif-zeep==0.2.12

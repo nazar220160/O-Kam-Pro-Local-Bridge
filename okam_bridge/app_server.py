@@ -8,9 +8,12 @@ import threading
 import hmac
 import shutil
 from .exports import ExportManager, ExportError
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
+from pathlib import Path
+import re
 from .web import BridgeServer, Handler
 from .accounts import AccountError, WorkspaceError
+from .vendor.cs2 import CS2Error
 
 COOKIE = "okam_account"
 
@@ -123,6 +126,52 @@ class AppHandler(Handler):
             headers,
         )
 
+    def _recording_file(self, workspace, camera_id, token):
+        try:
+            record = self.server.exports.archive.file(workspace, camera_id, token)
+        except (ValueError, KeyError):
+            return self._json(404, {"error": "recording_not_found"})
+        path = Path(record["path"])
+        size = path.stat().st_size
+        start = 0
+        end = size - 1
+        status = 200
+        requested = self.headers.get("Range")
+        if requested:
+            match = re.fullmatch(r"bytes=(\d+)-(\d*)", requested)
+            if not match:
+                return self._send(
+                    416, b"", headers={"Content-Range": f"bytes */{size}"}
+                )
+            start = int(match[1])
+            end = min(int(match[2]) if match[2] else end, end)
+            if start > end or start >= size:
+                return self._send(
+                    416, b"", headers={"Content-Range": f"bytes */{size}"}
+                )
+            status = 206
+        self.send_response(status)
+        self.send_header("Content-Type", "video/x-matroska")
+        self.send_header("Content-Length", str(end - start + 1))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Disposition", 'inline; filename="recording.mkv"')
+        if status == 206:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.end_headers()
+        try:
+            with path.open("rb") as stream:
+                stream.seek(start)
+                remaining = end - start + 1
+                while remaining:
+                    chunk = stream.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+        except (OSError, BrokenPipeError):
+            pass
+
     def do_GET(self):
         if not self._host_allowed():
             return self._json(403, {"error": "forbidden_host"})
@@ -192,6 +241,48 @@ class AppHandler(Handler):
         if path == "/api/cameras":
             return self._json(200, workspace.catalog())
         parts = path.strip("/").split("/")
+        if (
+            len(parts) == 6
+            and parts[:2] == ["api", "cameras"]
+            and parts[3:5] == ["archive", "file"]
+        ):
+            return self._recording_file(workspace, parts[2], parts[5])
+        if (
+            len(parts) == 5
+            and parts[:2] == ["api", "cameras"]
+            and parts[3] == "archive"
+        ):
+            try:
+                if parts[4] == "sd_dates":
+                    return self._json(
+                        200, self.server.exports.archive.sd_dates(workspace, parts[2])
+                    )
+                if parts[4] == "sd_records":
+                    return self._json(
+                        200,
+                        self.server.exports.archive.sd_records(
+                            workspace,
+                            parts[2],
+                            parse_qs(urlsplit(self.path).query).get("date", [""])[0],
+                        ),
+                    )
+            except KeyError:
+                return self._json(404, {"error": "camera_not_found"})
+            except (ValueError, CS2Error, OSError):
+                return self._json(400, {"error": "sd_archive_unavailable"})
+        if (
+            len(parts) == 4
+            and parts[:2] == ["api", "cameras"]
+            and parts[3] == "archive"
+        ):
+            try:
+                return self._json(
+                    200, self.server.exports.archive.status(workspace, parts[2])
+                )
+            except KeyError:
+                return self._json(404, {"error": "camera_not_found"})
+            except ValueError:
+                return self._json(400, {"error": "archive_unavailable"})
         if len(parts) == 3 and parts[:2] == ["api", "cameras"]:
             camera = next((c for c in workspace.catalog() if c["id"] == parts[2]), None)
             return (
@@ -298,6 +389,38 @@ class AppHandler(Handler):
                     200, self.server.exports.credentials(workspace, parts[2])
                 )
             if len(parts) == 4 and parts[:2] == ["api", "cameras"]:
+                if parts[3] == "archive":
+                    try:
+                        action = data.get("action")
+                        if action == "record":
+                            return self._json(
+                                200,
+                                self.server.exports.archive.set_recording(
+                                    workspace, parts[2], data
+                                ),
+                            )
+                        if action == "sd_import":
+                            return self._json(
+                                202,
+                                self.server.exports.archive.import_sd(
+                                    workspace, parts[2], data
+                                ),
+                            )
+                        if action == "replay":
+                            entry = self.server.exports._find(workspace, parts[2])
+                            if not entry:
+                                raise ValueError("export_not_enabled")
+                            return self._json(
+                                200,
+                                {
+                                    "uri": self.server.exports.archive_replay(
+                                        entry.export_id, data.get("token")
+                                    )
+                                },
+                            )
+                        raise ValueError("invalid_archive_action")
+                    except ValueError:
+                        return self._json(400, {"error": "archive_operation_failed"})
                 if parts[3] == "export":
                     value = self.server.exports.configure(workspace, parts[2], data)
                     if not value["enabled"]:

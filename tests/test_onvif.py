@@ -211,3 +211,17 @@ class ONVIFTests(unittest.TestCase):
             discovery.start()
             self.assertTrue(discovery.error)
             discovery.close()
+
+
+class ExtendedCapabilitiesTests(ONVIFTests):
+    def test_capabilities_follow_onvif_schema_sequence(self):
+        self.registry.item.update(ptz=True, events=True, recording=True)
+        status, _, body = self.request("GetCapabilities", service="device_service")
+        self.assertEqual(status, 200)
+        caps = ET.fromstring(body).find(
+            ".//{http://www.onvif.org/ver10/device/wsdl}Capabilities"
+        )
+        self.assertEqual(
+            [e.tag.rsplit("}", 1)[-1] for e in caps],
+            ["Device", "Events", "Media", "PTZ", "Extension"],
+        )

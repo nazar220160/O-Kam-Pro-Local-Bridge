@@ -2,7 +2,7 @@
 
 **Your cameras. Your network. Your API.**
 
-[![Version 0.7.0](https://img.shields.io/badge/version-0.7.0-95d75d)](CHANGELOG.md)
+[![Version 0.8.0](https://img.shields.io/badge/version-0.8.0-95d75d)](CHANGELOG.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![API reference](https://img.shields.io/badge/API-OpenAPI_3.1-527ac9)](docs/api.md)
 
@@ -15,16 +15,17 @@ A self-hosted dashboard and HTTP API for compatible O-Kam Pro cameras using the 
 ## What it does
 
 - Browser live view, snapshots, MJPEG and original H.264 output.
-- Optional bridge RTSP/TCP publication and a read-only ONVIF Device/Media facade for VLC and NVR clients, with one profile per observed lens.
+- Optional bridge RTSP/TCP publication and ONVIF Device/Media, PTZ, PullPoint events and archive services, with one profile per observed lens.
 - Multiple lens views, including three-lens camera layouts where supported.
 - High, medium and low native quality selection.
 - PTZ, presets, image settings and model-dependent native controls.
 - Account camera catalog, redacted metadata and a control console.
+- Opt-in server recording with retention/quota, SD-card clip import, authenticated downloads and RTSP replay.
 - Separate Python API and static nginx dashboard, with a documented OpenAPI contract.
 
 **Compatibility matters:** this bridge supports the CS2/PPPP transport family, not every camera sold under the O-Kam name. Cameras must be reachable on your LAN or a routed private network. Account login and transport bootstrap contact vendor services; this is not a cloud relay or WAN video transport.
 
-Audio streaming, two-way talk, SD recording playback and VP transport are not implemented. Bridge publication copies H.264 without encoding through the separate MediaMTX service (TCP 8554 by default); the optional ONVIF endpoint uses port 8899 and authenticated snapshots. WS-Discovery works only where multicast is reachable. The facade has no PTZ, events or recording service and is not ONVIF certified. [Set up bridge exports](docs/bridge-exports.md).
+Audio streaming, two-way talk and VP transport are not implemented. Bridge publication copies H.264 without encoding through the separate MediaMTX service (TCP 8554 by default); the optional ONVIF endpoint uses port 8899 and authenticated snapshots. WS-Discovery works only where multicast is reachable. ONVIF supports bounded continuous pan/tilt, native presets, observed status events, recording search and forward clip replay. Absolute PTZ positions, reverse playback and RTSP clock seeking are unsupported; ONVIF certification is not claimed. [Set up bridge exports](docs/bridge-exports.md).
 
 Native camera capability flags do not prove that an RTSP or ONVIF daemon is running. Independent native service toggles remain unverified and disabled; bridge publication does not change the camera’s native ONVIF/RTSP settings.
 

@@ -4,11 +4,11 @@ const fs = require("fs"),
 const html = fs.readFileSync("web/index.html", "utf8");
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
 assert.equal(new Set(ids).size, ids.length, "DOM IDs must be unique");
-for (const asset of ["app.js", "controls.js", "exports.js", "styles.css"]) {
+for (const asset of ["app.js", "controls.js", "exports.js", "archive.js", "styles.css"]) {
   assert(html.includes("/" + asset));
   assert(fs.statSync("web/" + asset).size > 0);
 }
-for (const filename of ["app.js", "controls.js", "exports.js"]) {
+for (const filename of ["app.js", "controls.js", "exports.js", "archive.js"]) {
   const source = fs.readFileSync("web/" + filename, "utf8");
   new vm.Script(source, { filename });
   for (const match of source.matchAll(/\$\('([^']+)'\)/g)) {

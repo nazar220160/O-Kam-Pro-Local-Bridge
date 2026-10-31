@@ -1,4 +1,4 @@
-# HTTP API · v0.7.0
+# HTTP API · v0.8.0
 
 The Python API is independent of the dashboard. With Compose, use `http://localhost:8080` for both the dashboard and proxied API. For a native process started with `python -m okam_bridge api --port 8098`, use `http://localhost:8098`.
 
@@ -87,7 +87,7 @@ curl -b session.cookies -H 'Content-Type: application/json' \
   http://localhost:8080/api/cameras/CAMERA_ID/control
 ```
 
-Actions include PTZ pulses and steps, stop, calibration, cruise, presets, guard position, volume settings, image settings, zoom, light, siren, tracking, indicator, OSD and recording settings. Support varies with firmware. Volume settings do not implement audio streaming. Archive metadata queries do not implement SD playback.
+Actions include PTZ pulses and steps, stop, calibration, cruise, presets, guard position, volume settings, image settings, zoom, light, siren, tracking, indicator, OSD and recording settings. Support varies with firmware. Volume settings do not implement audio streaming. Native archive metadata queries are separate from the bridge archive routes below.
 
 Responses distinguish `confirmed` (firmware result 0), `rejected` (firmware rejection), `sent` (transport delivery only) and responses without a definitive result. Transport acknowledgement alone does not confirm the requested effect. Timed-out queued commands do not execute later. The expert `native` action accepts a bounded relative CGI path; the bridge inserts authentication and rejects credential overrides. It can change persistent settings.
 
@@ -108,3 +108,18 @@ Protocol references: [VStarcam CGI command list](https://shop.vstarcam.cn/docs/c
 ## Errors
 
 Failures return a JSON `error` code. Common statuses: `400` invalid input or camera not streaming, `401` authentication required, `403` rejected host/origin, `404` unknown route/camera, `409` connection already in progress, `415` JSON required, `502` vendor failure, and `503` no frame available. Consult the current OpenAPI contract and camera state for details. Keep native credentials, account tokens and media credentials out of URLs, issue reports and logs.
+
+
+## Bridge archives
+
+All routes require the owning account cookie or Bearer session; browser-player credentials are insufficient. Enable bridge publication before recording, SD access or RTSP replay. Completed file downloads/status remain account-accessible after reconnecting to the same account even if publication is off.
+
+- `GET /api/cameras/{id}/archive`: recording worker state, completed records, storage policy/usage and current session import jobs. Public metadata contains no filesystem paths or passwords.
+- `POST /api/cameras/{id}/archive` with `{"action":"record","enabled":true,"segment_seconds":60,"retention_days":7,"max_bytes":10737418240}` starts per-observed-lens recording. Use `{"action":"record","enabled":false}` to finalize and stop.
+- `GET /api/cameras/{id}/archive/sd_dates`: available camera dates.
+- `GET /api/cameras/{id}/archive/sd_records?date=YYYYMMDD`: bounded SD index; use a returned `id` rather than constructing a filename.
+- `POST /api/cameras/{id}/archive` with `{"action":"sd_import","source_id":"RETURNED_ID","duration":60}` returns a job (HTTP 202). Poll archive status until completed/error/cancelled. Duration is 1–300 seconds. The selected date must first be listed within this account session.
+- `GET /api/cameras/{id}/archive/file/{token}`: authenticated MKV download. Supports a single `Range: bytes=START-END` or `bytes=START-` request (206); unsupported/invalid ranges return 416.
+- `POST /api/cameras/{id}/archive` with `{"action":"replay","token":"RECORDING_TOKEN"}` returns a credential-free RTSP URI for normal forward clip replay. Use explicitly revealed publication credentials in the player.
+
+The full constraints and lifecycle are described in [bridge exports](bridge-exports.md#server-and-sd-archives). SD cache and server files are separate sources in metadata, but both are exposed to ONVIF Recording/Search/Replay once complete. Recording settings are bridge storage policy; they do not change the camera SD recording configuration.

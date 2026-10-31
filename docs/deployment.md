@@ -41,7 +41,7 @@ docker compose logs --tail=100 bridge web
 docker compose down
 ```
 
-Stopping or restarting the API discards account sessions and active connections. The named gateway volume survives `down`; `down -v` deletes it, and the next startup creates a new token. Before sharing logs, remove identifiers, private addresses and any secrets.
+Stopping or restarting the API discards account sessions and active connections. The named gateway and recordings volumes survive `down`; `down -v` deletes both, including all server recordings, SD cache and their manifest. The next startup creates a new gateway token. Before sharing logs, remove identifiers, private addresses and any secrets.
 
 ## macOS: native camera API, Docker dashboard
 
@@ -116,3 +116,10 @@ On macOS, the API continues to handle physical-camera UDP natively, preserving t
 | Open native service port but no RTSP/ONVIF login | TCP availability is not protocol or credential verification. |
 
 The older `setup` / `serve` CLI workflow remains available for a private cached camera configuration. It stores native camera credentials in the private config and differs from the account-session API workflow; keep that file out of source control.
+
+
+## Persistent archive storage
+
+The Linux bridge mounts a writable `recordings` named volume at `/recordings` while retaining its read-only container root filesystem. `BRIDGE_RECORDINGS_DIR=/recordings` selects it. Native macOS defaults to `.runtime/recordings` (private directory, excluded from Git); set `BRIDGE_RECORDINGS_DIR` before starting the API to use another disk. Recording and SD import remain opt-in, and recording workers do not resume after restart. Retained files are accessible after signing into the same account again.
+
+Back up the SQLite manifest and clips together while the API is stopped. Monitor disk usage across all cameras: retention/quota are per camera and are enforced when files complete, not a global capacity guarantee. See [archive behavior and limits](bridge-exports.md#server-and-sd-archives).

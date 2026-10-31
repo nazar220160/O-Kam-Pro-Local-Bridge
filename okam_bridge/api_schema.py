@@ -315,7 +315,7 @@ def openapi():
             },
             ["enabled"],
         ),
-        description="Requires connected camera. Publishes original H264 for observed lenses over RTSP/TCP; ONVIF is a read-only Device/Media subset. No native camera settings are changed. Active publication keeps the camera and owning in-memory account session alive; closing a browser tab does not stop it. Logout, explicit disconnect, disabling publication or server restart revokes it. Enabling extends the account cookie lifetime while publication is active. No ONVIF certification, PTZ, events or recording facade is claimed.",
+        description="Requires connected camera. Publishes original H264 for observed lenses over RTSP/TCP; ONVIF exposes Device/Media, bounded PTZ when a motor is reported, PullPoint events from actual native observations, and Recording/Search/Replay for completed server/SD-cache clips. No native camera settings are changed. Active publication keeps the camera and owning in-memory account session alive; closing a browser tab does not stop it. Logout, explicit disconnect, disabling publication or server restart revokes it. Enabling extends the account cookie lifetime while publication is active. No ONVIF certification, absolute positioning, reverse playback or events inferred from video are claimed.",
     )
     operation(
         "/api/cameras/{camera_id}/export/credentials",
@@ -341,6 +341,92 @@ def openapi():
         public=True,
         description="Server-to-server callback. No account cookie is used; the submitted per-publication or publisher credentials are verified against the exact enabled path and action. Returns 200 on authorization, 401 otherwise. Does not create or change publications.",
     )
+    operation(
+        "/api/cameras/{camera_id}/archive",
+        "get",
+        "List completed server/SD-cache recordings, jobs and storage policy",
+        description="Private persistent files are scoped to the current vendor account and camera. No file path or credentials are returned. Recording is off by default. A completed SD import appears as source=sd; cached files remain after logout but access requires the owning account.",
+    )
+    operation(
+        "/api/cameras/{camera_id}/archive",
+        "post",
+        "Control server recording, import SD clip or start forward replay",
+        body(
+            {
+                "action": {"type": "string", "enum": ["record", "sd_import", "replay"]},
+                "enabled": {"type": "boolean"},
+                "segment_seconds": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 3600,
+                    "default": 60,
+                },
+                "retention_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365,
+                    "default": 7,
+                },
+                "max_bytes": {
+                    "type": "integer",
+                    "minimum": 1048576,
+                    "maximum": 1099511627776,
+                    "default": 10737418240,
+                },
+                "source_id": string,
+                "duration": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 300,
+                    "default": 60,
+                },
+                "token": string,
+            },
+            ["action"],
+        ),
+        description="Requires an enabled bridge publication. record explicitly starts/stops H264-copy server recording. sd_import uses only an identifier from sd_records, returns an asynchronous job, downloads at most 300 seconds and 500 MiB in a separate authenticated camera session; no SD files are deleted. replay returns RTSP URI for a completed private recording. Credentials are the current publication credentials. Server retention/quota policy is persisted per account/camera; SD cache shares quota but is not aged out using its original camera date. At most two SD download jobs run globally; 2 GiB free space required before import. File playback is forward at normal speed, not arbitrary reverse or clock-range seeking.",
+    )
+    operation(
+        "/api/cameras/{camera_id}/archive/sd_dates",
+        "get",
+        "Read available SD recording dates",
+        description="Read-only separate camera session; requires enabled publication and connected camera.",
+    )
+    op = operation(
+        "/api/cameras/{camera_id}/archive/sd_records",
+        "get",
+        "Read SD timeline entries for a date",
+        description="Returns actual timeline metadata and opaque source IDs; call sd_import explicitly to make a clip playable/searchable through the bridge. Does not download video automatically.",
+    )
+    op["parameters"].append(
+        {
+            "name": "date",
+            "in": "query",
+            "required": True,
+            "schema": {"type": "string", "pattern": "^[0-9]{8}$"},
+        }
+    )
+    op = operation(
+        "/api/cameras/{camera_id}/archive/file/{recording_token}",
+        "get",
+        "Download authenticated Matroska recording with HTTP byte ranges",
+        description="Completed private recording only; cookie/Bearer account authorization required. Optional Range: bytes=start-end returns 206. Not every browser supports Matroska inline; VLC or download can be used.",
+    )
+    op["parameters"].append(
+        {
+            "name": "recording_token",
+            "in": "path",
+            "required": True,
+            "schema": {"type": "string"},
+        }
+    )
+    op["responses"]["200"]["content"] = {
+        "video/x-matroska": {"schema": {"type": "string", "format": "binary"}}
+    }
+    op["responses"]["206"] = {
+        "description": "Requested byte range",
+        "content": op["responses"]["200"]["content"],
+    }
     for endpoint, mime in [
         ("snapshot.jpg", "image/jpeg"),
         ("mjpeg", "multipart/x-mixed-replace"),
@@ -444,5 +530,5 @@ curl -b session.cookies http://localhost:8080/api/cameras</pre><h2>Endpoints</h2
         + "".join(rows)
         + """<h2>Native control actions</h2><p>Send {"action":"ptz_step","args":{"direction":"left"}} to /api/cameras/{camera_id}/control. Firmware may reject actions; transport delivery does not imply successful execution.</p><pre>"""
         + actions
-        + """</pre><h2>Native ONVIF / RTSP</h2><p>plaintext_password configures the documented external-user credentials. Separate ONVIF/RTSP service switches are not verified. Refresh parameters and probe service ports; an open port is not protocol verification. Camera service passwords are different from bridge media credentials.</p><h2>Bridge-owned ONVIF / RTSP</h2><p>Enable /api/cameras/{camera_id}/export to publish the existing camera session independently of native ONVIF/RTSP support. Separate credentials are revealed only through POST export/credentials. RTSP/TCP is served by MediaMTX; the ONVIF Device/Media facade exposes observed lens profiles and authenticated snapshots. PTZ, events and full ONVIF certification are not provided. Closing a tab keeps publication alive; logout or disconnect revokes it. Active publications extend the owning account session until disabled or server restart.</p><h2>Errors &amp; lifecycle</h2><p>400 invalid input or camera not streaming · 401 session required · 403 host/origin rejected · 404 unknown camera/route · 409 connection already in progress · 415 JSON required · 502 vendor service unavailable · 503 no video. POST JSON bodies are limited to 8192 bytes. Sessions expire after 12 hours unless held by an active publication; restart requires login again. Camera connections are demand-driven and reconnect after interruptions.</p></html>"""
+        + """</pre><h2>Native ONVIF / RTSP</h2><p>plaintext_password configures the documented external-user credentials. Separate ONVIF/RTSP service switches are not verified. Refresh parameters and probe service ports; an open port is not protocol verification. Camera service passwords are different from bridge media credentials.</p><h2>Bridge-owned ONVIF / RTSP</h2><p>Enable /api/cameras/{camera_id}/export to publish the existing camera session independently of native ONVIF/RTSP support. Separate credentials are revealed only through POST export/credentials. RTSP/TCP is served by MediaMTX; the ONVIF Device/Media facade exposes observed lens profiles and authenticated snapshots. Native pan/tilt/presets, actual polled alarm events, completed recording search and forward replay are provided through the ONVIF facade. Full ONVIF certification, absolute positioning, reverse playback and arbitrary clock seeking are not claimed. Closing a tab keeps publication alive; logout or disconnect revokes it. Active publications extend the owning account session until disabled or server restart.</p><h2>Errors &amp; lifecycle</h2><p>400 invalid input or camera not streaming · 401 session required · 403 host/origin rejected · 404 unknown camera/route · 409 connection already in progress · 415 JSON required · 502 vendor service unavailable · 503 no video. POST JSON bodies are limited to 8192 bytes. Sessions expire after 12 hours unless held by an active publication; restart requires login again. Camera connections are demand-driven and reconnect after interruptions.</p></html>"""
     )

@@ -1559,3 +1559,9 @@ dialog::backdrop {
 .bridge-export .control-actions {
   flex-wrap: wrap;
 }
+
+.archive-records { display: grid; gap: 10px; }
+.archive-record { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.archive-record > span { flex: 1 1 260px; overflow-wrap: anywhere; }
+.bridge-archive .control-actions { flex-wrap: wrap; }
+#archive-replay { overflow-wrap: anywhere; }
