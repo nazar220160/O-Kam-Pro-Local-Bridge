@@ -88,3 +88,15 @@ These checks cover the tested camera, installed Frigate build and measured netwo
 - Full macOS Python suite: 250 tests passed; all five Node frontend suites and OpenAPI validation passed. Added regressions for same-camera/generation retention, saved quality, rejected commands, invalid inputs and reconnect fallback when the IP changes.
 - The deployed physical three-lens camera changed from 1920×1080 to 448×256 on all lenses over the existing serialized native session. The apply request completed in approximately 0.06 seconds, the native connection counter remained 1 and the publication ID was unchanged. Original high quality was restored through the same live command. No new account login, transport bootstrap or camera object was required for either quality change.
 - Explicit reconnect remains available; IP or native substream changes retain the prior full-connect behavior. Encoder/keyframe transitions may cause a brief visual pause, and behavior on other camera firmware remains model-dependent.
+
+## 0.11.0 optional vendor relay
+
+Checks performed on 2026-11-01:
+
+- Linux x86_64 / Python 3.12 runtime with external networking disabled and a read-only root: 263 tests ran, seven optional development/Docker-CLI checks skipped, all remaining checks passed. All six Node frontend suites and the generated OpenAPI contract passed.
+- Rebuilt and deployed the API/dashboard on the existing Linux host without changing its persisted session, publication credentials or NVR configuration. Health reports version 0.11.0 and healthy encrypted persistence. The served dashboard includes the separate cloud button/action.
+- Switched the physical three-lens camera from LAN to explicit cloud mode. Native CS2 negotiation reported `transport.path: relay`; valid JPEGs arrived from all three lenses. The adapter requires relay readiness and cannot silently use the camera's local address.
+- Independent FFprobe reads of all three existing authenticated RTSP publications reported H.264 1920×1080 plus AAC through that relay source. Publication ID and read credentials were unchanged. Restored the original LAN mode afterwards and verified that the same publication ID/credentials remained active.
+- New regressions cover relay readiness and UID matching, direct-path rejection, cancellation/socket cleanup, no LAN fallback/discovery/IP dependency, selected-mode HTTP validation, live quality retaining cloud mode, persisted source overriding stale cached configuration, retained LAN hints and independent SD sessions selecting the configured transport.
+
+The camera was also reachable on the host's LAN during this test, but the tested video session explicitly used the vendor relay. This does not establish availability for every camera, vendor service outage, firmware family or separate ISP network. VP remains unsupported. Visual browser inspection was unavailable because local browser use was disabled; frontend behavior was exercised by the Node suites and served assets were checked through HTTP.
