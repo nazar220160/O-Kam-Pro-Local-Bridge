@@ -224,6 +224,11 @@ class StateService:
                 record.phase = "preparing"
                 record.error = None
                 config = dict(record.cached_config) if record.cached_config else None
+                if config:
+                    if record.ip:
+                        config["ip"] = record.ip
+                    config["substream"] = record.substream
+                    config.pop("quality", None)
             workspace._connect(
                 record,
                 generation,

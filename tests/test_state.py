@@ -230,3 +230,17 @@ class StateTests(unittest.TestCase):
         with self.assertRaises(AccountError):
             manager.login("first", "wrong")
         self.assertIs(manager.get(token), workspace)
+
+    def test_pending_ip_and_quality_override_cached_connection_on_restart(self):
+        manager, exports, state = self.system()
+        token, workspace, cid = self.connect(manager)
+        with workspace.lock:
+            workspace.records[cid].ip = "192.168.20.99"
+            workspace.records[cid].quality = None
+            workspace.records[cid].cached_config["quality"] = "high"
+        state.checkpoint()
+        manager, exports, state = self.restart()
+        workspace = manager.get(token)
+        wait_for(lambda: cid in workspace.cameras)
+        self.assertEqual(workspace.cameras[cid].config["ip"], "192.168.20.99")
+        self.assertNotIn("quality", workspace.cameras[cid].config)

@@ -650,14 +650,23 @@ async function poll() {
     S.polling = false;
   }
 }
-(async () => {
+async function resumeWorkspace() {
   try {
-    showWorkspace(await api("/api/account"));
+    const account = await api("/api/account");
+    if (S.username) return;
+    showWorkspace(account);
     await fetchCatalog();
-  } catch {
-    showLogin();
+  } catch (error) {
+    if (error.code === "account_login_required") {
+      showLogin();
+    } else {
+      $("login-error").hidden = false;
+      $("login-error").textContent = "Мост запускается или временно недоступен. Подключение восстановится автоматически…";
+      setTimeout(() => { if (!S.username) void resumeWorkspace(); }, 2000);
+    }
   }
-})();
+}
+void resumeWorkspace();
 setInterval(poll, 2500);
 
 // Tab state is local UI state; changing tabs never starts a network probe.
