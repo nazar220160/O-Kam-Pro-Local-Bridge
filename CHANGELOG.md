@@ -3,8 +3,8 @@
 ## 0.9.0
 
 - Receive supported native G.711 A-law microphone frames and publish real AAC audio with each live RTSP lens stream. Preserve video-only fallback and separate bounded audio/video queues.
-- Assign explicit copied-video timestamps and flush RTSP packets with low mux delay.
-- Provide an optional Frigate derivative-image adapter for direct-TCP, bounded metadata/snapshot probes below the wizard browser timeout.
+- Use capture-time video/audio timestamps rather than a fixed frame-count clock, preserving variable native frame cadence; flush RTSP packets with low mux delay.
+- Provide an optional Frigate derivative-image adapter for direct-TCP, bounded metadata probes and authenticated cached ONVIF snapshots below the wizard browser timeout.
 - Browser streams and bridge archives remain video-only; two-way audio is not implemented.
 
 

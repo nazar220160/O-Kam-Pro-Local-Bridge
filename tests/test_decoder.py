@@ -55,3 +55,40 @@ class DecoderTests(unittest.TestCase):
             d.close()
         self.assertFalse(d.thread.is_alive())
         self.assertIsNotNone(d.process.poll())
+
+    def test_cached_keyframe_produces_preview_without_waiting_for_next_gop(self):
+        ff = shutil.which("ffmpeg")
+        clip = subprocess.run(
+            [
+                ff,
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x180:rate=10",
+                "-t",
+                "1.5",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-tune",
+                "zerolatency",
+                "-g",
+                "300",
+                "-f",
+                "h264",
+                "pipe:1",
+            ],
+            capture_output=True,
+            check=True,
+        ).stdout
+        ready = threading.Event()
+        decoder = JPEGDecoder(ff, lambda frame: ready.set())
+        try:
+            decoder.write(clip)
+            # The live pipe remains open; no second keyframe or EOF is supplied.
+            self.assertTrue(ready.wait(2), "Cached keyframe was discarded or delayed")
+        finally:
+            decoder.close()
