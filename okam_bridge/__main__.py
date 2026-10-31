@@ -214,7 +214,7 @@ def main():
     p.add_argument("--port", type=int, default=8098)
     p.add_argument(
         "--credential-client",
-        help="Official SuperIPCam.exe used locally to decode account-issued camera passwords",
+        help="Optional legacy client-file override for alternate credential protocols; standard decoding is built in",
     )
     p.add_argument("--ffmpeg")
     p.add_argument("--access-token-env", default="BRIDGE_ACCESS_TOKEN")

@@ -10,7 +10,7 @@ Files in `okam_bridge/vendor/` derive from [shymonke/okam-ha-native](https://git
 
 These files are inherited and may carry local adaptations; they are not claimed to be an unchanged upstream snapshot. The original MIT copyright and license notice is preserved in [okam_bridge/vendor/LICENSE](okam_bridge/vendor/LICENSE). The local LAN adapter, API, CLI and dashboard are maintained in this project.
 
-`okam_bridge/credentials.py` adapts the AES camera-password decoding approach from upstream `vp_credentials.py` under MIT. No embedded vendor keys or proprietary executables are distributed. Where required, a user supplies a compatible official client file, inspected locally as data only.
+`okam_bridge/credentials.py` adapts the AES camera-password decoding approach from upstream `vp_credentials.py` under MIT. The fixed securityPwd interoperability salt was verified against the official client and authorized account records and is included in the decoder. Actual camera/account credentials and proprietary executables are not distributed. No external client file is required for the supported protocol.
 
 ## Protocol references
 

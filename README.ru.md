@@ -2,7 +2,7 @@
 
 **Ваши камеры. Ваша сеть. Ваш API.**
 
-[![Версия 0.8.0](https://img.shields.io/badge/version-0.8.0-95d75d)](CHANGELOG.md)
+[![Версия 0.8.1](https://img.shields.io/badge/version-0.8.1-95d75d)](CHANGELOG.md)
 [![Лицензия MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Локальная веб-панель и HTTP API для совместимых камер O-Kam Pro с протоколом CS2/PPPP: видео, несколько объективов, PTZ, метаданные и проверяемые команды управления.
@@ -30,7 +30,7 @@ git clone https://github.com/nazar220160/O-Kam-Pro-Local-Bridge.git
 cd O-Kam-Pro-Local-Bridge
 ```
 
-Если аккаунт выдаёт **зашифрованные пароли камер**, сначала поместите собственный совместимый устаревший официальный `SuperIPCam.exe` в `secrets/SuperIPCam.exe`. Проект не распространяет и не скачивает этот файл. Он читается только как данные для расшифровки паролей и никогда не запускается. Подходят не все версии клиента.
+Расшифровка паролей камер встроена в мост. Официальный PC-клиент, `SuperIPCam.exe` и дополнительные файлы не нужны.
 
 ```sh
 docker compose up -d
@@ -38,9 +38,9 @@ docker compose up -d
 
 Откройте [localhost:8080](http://localhost:8080), войдите в аккаунт O-Kam и подключите выбранную камеру. Compose собирает API и веб-панель, автоматически создавая приватный токен шлюза.
 
-По умолчанию веб-панель доступна на `127.0.0.1:8080`, API — на `127.0.0.1:8098`. Документация: [API](http://localhost:8080/docs/) и [OpenAPI JSON](http://localhost:8080/openapi.json).
+По умолчанию веб-панель доступна на `http://IP_СЕРВЕРА:8080`, API — на `127.0.0.1:8098`. Документация: [API](http://localhost:8080/docs/) и [OpenAPI JSON](http://localhost:8080/openapi.json).
 
-Для доступа из доверенной локальной сети создайте `.env`:
+Параметры можно переопределить в `.env`:
 
 ```dotenv
 WEB_LISTEN=0.0.0.0
@@ -61,7 +61,7 @@ pip install -r requirements.txt
 python -m okam_bridge api --port 8098
 ```
 
-Для зашифрованных паролей добавьте `--credential-client /path/to/SuperIPCam.exe`. Веб-панель запускается отдельно из `web/`. Примеры авторизации, видео и управления — в [docs/api.md](docs/api.md).
+Пароли камер расшифровываются автоматически, без дополнительных файлов. Веб-панель запускается отдельно из `web/`. Примеры авторизации, видео и управления — в [docs/api.md](docs/api.md).
 
 Независимый общественный проект, не связанный с O-Kam или VStarcam. Лицензия [MIT](LICENSE); происхождение стороннего кода — [THIRD_PARTY.md](THIRD_PARTY.md).
 

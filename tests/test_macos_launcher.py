@@ -29,7 +29,7 @@ class MacOSLauncherTests(unittest.TestCase):
             Path(root, "secrets").mkdir()
             Path(root, "secrets/SuperIPCam.exe").touch()
             command = self.launcher().native_command(Path(root), "/custom/python", 8098)
-            self.assertIn("--credential-client", command)
+            self.assertNotIn("--credential-client", command)
 
     def test_gateway_token_is_private_to_project_and_stable_across_restarts(self):
         module = self.launcher()
@@ -70,6 +70,7 @@ class MacOSLauncherTests(unittest.TestCase):
             ],
             capture_output=True,
             text=True,
+            env=dict(os.environ, WEB_LISTEN="127.0.0.1"),
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         services = json.loads(result.stdout)["services"]

@@ -2,7 +2,7 @@
 
 **Your cameras. Your network. Your API.**
 
-[![Version 0.8.0](https://img.shields.io/badge/version-0.8.0-95d75d)](CHANGELOG.md)
+[![Version 0.8.1](https://img.shields.io/badge/version-0.8.1-95d75d)](CHANGELOG.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![API reference](https://img.shields.io/badge/API-OpenAPI_3.1-527ac9)](docs/api.md)
 
@@ -38,7 +38,7 @@ git clone https://github.com/nazar220160/O-Kam-Pro-Local-Bridge.git
 cd O-Kam-Pro-Local-Bridge
 ```
 
-If your account supplies **encrypted camera passwords**, place your own compatible legacy official `SuperIPCam.exe` at `secrets/SuperIPCam.exe` before connecting cameras. The project does not include or download this proprietary file. It reads the file as data to decode account-issued credentials; it never executes it. Not every official client version is compatible.
+Encrypted camera credentials are decoded by the bridge itself. No official PC client, copied executable or extra credentials file is required.
 
 ```sh
 docker compose up -d
@@ -46,9 +46,9 @@ docker compose up -d
 
 Open [localhost:8080](http://localhost:8080), sign in with your O-Kam account, select a camera and connect. The dashboard starts separately from the API; Compose builds both and initializes their private gateway token automatically. No manual gateway token setup is needed.
 
-Default listeners: dashboard `127.0.0.1:8080`, API `127.0.0.1:8098`. The API reference is available through the dashboard at [/docs/](http://localhost:8080/docs/) and [/openapi.json](http://localhost:8080/openapi.json).
+Default listeners: dashboard `0.0.0.0:8080`, API `127.0.0.1:8098`. The API reference is available through the dashboard at [/docs/](http://localhost:8080/docs/) and [/openapi.json](http://localhost:8080/openapi.json).
 
-For access from another device on a trusted LAN, create `.env`:
+The dashboard is reachable at `http://SERVER_IP:8080` on your trusted LAN. Optional `.env` overrides:
 
 ```dotenv
 WEB_LISTEN=0.0.0.0
@@ -71,7 +71,7 @@ pip install -r requirements.txt
 python -m okam_bridge api --port 8098
 ```
 
-The API serves JSON and API documentation. The dashboard is the separate `web/` service. For encrypted camera credentials, add `--credential-client /path/to/SuperIPCam.exe`. See [deployment](docs/deployment.md) for access protection and frontend configuration, and [API examples](docs/api.md) for login, video and controls.
+The API serves JSON and API documentation. The dashboard is the separate `web/` service. Credential decoding is built in; no `--credential-client` argument is needed. See [deployment](docs/deployment.md) for access protection and frontend configuration, and [API examples](docs/api.md) for login, video and controls.
 
 Publication credentials are separate from account, camera and browser-player credentials and are revealed only on explicit request. Closing the dashboard tab keeps an enabled publication running; logout, camera disconnect, disabling publication or API restart revokes it. After restart, sign in and enable it again.
 

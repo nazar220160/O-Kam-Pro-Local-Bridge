@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.1
+
+- Decode supported encrypted camera credentials directly in the bridge. Remove the required official PC client and secrets mount from Compose and the macOS launcher. Keep an explicit legacy client-file override for alternate protocols.
+- Make the dashboard reachable on LAN by default, while keeping the protected API on loopback. Explicit WEB_LISTEN overrides still apply.
+- Update clean-start documentation and add no-file decoder/deployment regression coverage.
+
+
 ## 0.8.0
 
 - Extend bridge-owned ONVIF with bounded continuous pan/tilt, Stop, native presets and truthful status, plus authenticated PullPoint subscriptions backed by observed native alarms.

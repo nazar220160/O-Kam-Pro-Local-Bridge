@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-export WEB_LISTEN="${WEB_LISTEN:-127.0.0.1}" WEB_PORT="${WEB_PORT:-8080}" BRIDGE_PORT="${BRIDGE_PORT:-8098}" BRIDGE_HOST="${BRIDGE_HOST:-127.0.0.1}"
+export WEB_LISTEN="${WEB_LISTEN:-0.0.0.0}" WEB_PORT="${WEB_PORT:-8080}" BRIDGE_PORT="${BRIDGE_PORT:-8098}" BRIDGE_HOST="${BRIDGE_HOST:-127.0.0.1}"
 # Configuration values are not allowed to introduce nginx directives.
 case "$WEB_LISTEN" in *[!0-9.a-zA-Z:-]*|'') echo 'Invalid WEB_LISTEN' >&2; exit 1;; esac
 case "$BRIDGE_HOST" in *[!0-9.a-zA-Z-]*|'') echo 'Invalid BRIDGE_HOST' >&2; exit 1;; esac

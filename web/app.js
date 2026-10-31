@@ -35,7 +35,7 @@ const errors = {
   unknown_control: "Неизвестная команда управления.",
   invalid_quality: "Выберите доступное качество видео.",
   password_decoder_required:
-    "Пароль этой камеры выдаётся зашифрованным. Запустите мост с --credential-client /путь/SuperIPCam.exe (официальный PC-клиент).",
+    "Обновите мост: расшифровка пароля камеры встроена в актуальную версию.",
   crypto_dependency_required:
     "Для зашифрованного пароля установите зависимости: python3 -m pip install -r requirements.txt",
   encrypted_credentials_invalid:

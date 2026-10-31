@@ -9,6 +9,37 @@ import unittest
     shutil.which("docker"), "Docker Compose is optional for native Python tests"
 )
 class DeploymentTests(unittest.TestCase):
+    def test_clean_compose_needs_no_client_file_and_serves_lan_dashboard(self):
+        import json
+
+        env = dict(os.environ)
+        env.pop("WEB_LISTEN", None)
+        result = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                "/dev/null",
+                "-f",
+                "compose.yaml",
+                "config",
+                "--format",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        services = json.loads(result.stdout)["services"]
+        self.assertEqual(services["web"]["environment"]["WEB_LISTEN"], "0.0.0.0")
+        bridge = services["bridge"]
+        self.assertNotIn("BRIDGE_CREDENTIAL_CLIENT", bridge["environment"])
+        self.assertFalse(
+            any("credentials" in volume["target"] for volume in bridge["volumes"])
+        )
+        self.assertIn("127.0.0.1", bridge["command"])
+
     def test_desktop_profile_publishes_web_but_keeps_api_internal(self):
         import json
 

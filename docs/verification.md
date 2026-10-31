@@ -46,3 +46,12 @@ The updated macOS suite passed all 120 tests. All three frontend Node suites and
 - Added regression coverage for subscription/search isolation and expiry, unsupported protocol operations, bounded motion/Stop, SD binary/index parsing, server remux/decode, persistent owner scoping and policy, recorder enable/disable races, explicit SD identifiers, HTTP archive authorization/ranges, safe transport errors and frontend account/camera races. WSDL response parsing uses independent packaged schemas through a development-only dependency.
 
 These are partial ONVIF services, not certified Profiles S/T/G. No claim is made for absolute PTZ positioning, reverse or clock-seek replay, audio, every NVR implementation, every camera firmware, or cross-LAN multicast discovery.
+
+
+## 0.8.1 self-contained credential decoding
+
+- Final macOS suite: 219 tests passed. Linux arm64 / Python 3.12 runtime: 219 tests ran, six optional development/Docker-CLI checks skipped, all remaining checks passed. All five Node frontend suites and OpenAPI validation passed.
+
+- Built-in decoding matched the former client-file decoder for two authorized cached account records. A fresh account login and physical-camera connection using LANBackend without a client-file argument authenticated and received a real video frame. No native settings were changed.
+- An isolated source copy containing no `.env` or official executable built and reached healthy API/web states with fresh Docker volumes. The Docker Desktop networking override and separate test ports were used to avoid disrupting the existing deployment. Inside that container, the built-in decoder passed a synthetic known-answer vector while the external client path was absent. The temporary test stack/volumes were removed. Linux host-network Compose defaults are validated separately; this check does not claim physical camera UDP works through Docker Desktop.
+- Regression coverage includes known-answer decoding with filesystem access forbidden, a stale/missing legacy override, invalid input rejection, no client-file mount in clean Compose, LAN dashboard defaults and explicit loopback restrictions. Actual user credentials and proprietary executables remain outside Git; the fixed interoperability salt is deliberately included in source.

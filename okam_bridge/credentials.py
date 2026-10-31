@@ -1,7 +1,9 @@
-"""Decode account-issued camera secrets using a user's official client file.
+"""Decode authorized account-issued camera secrets without external files.
 
-Only static ASCII strings are inspected. No vendor executable is run and no
-vendor key is distributed. The selected key and passwords stay in memory.
+The supported protocol uses a fixed vendor salt plus the account check value.
+This interoperability constant is not an account or camera credential. Actual
+passwords are decoded only from records returned by the authenticated account.
+An optional client-file override supports alternate vendor salts; never executed.
 Algorithm reference: okam-ha-native vp_credentials.py, MIT.
 """
 
@@ -9,6 +11,10 @@ import hashlib
 from pathlib import Path
 import re
 import threading
+
+
+# Fixed securityPwd protocol salt, verified against authorized account records.
+_CAMERA_PASSWORD_SALT = "_+Vstarcam++20200715"
 
 
 class CredentialError(ValueError):
@@ -54,14 +60,18 @@ class CredentialDecoder:
             raise CredentialError("encrypted_credentials_invalid")
         try:
             with self._lock:
-                if self._key:
+                for key in dict.fromkeys((self._key, _CAMERA_PASSWORD_SALT)):
+                    if not key:
+                        continue
                     try:
-                        return self._decode(security, check, self._key)
+                        password = self._decode(security, check, key)
                     except ValueError:
-                        raise CredentialError("encrypted_credentials_invalid") from None
+                        continue
+                    self._key = key
+                    return password
                 if self._data is None:
                     if not self.path:
-                        raise CredentialError("password_decoder_required")
+                        raise CredentialError("encrypted_credentials_invalid")
                     p = Path(self.path)
                     if (
                         not p.is_file()

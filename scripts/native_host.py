@@ -47,9 +47,6 @@ def native_command(root, python, port):
         "--access-token-file",
         str(root / ".runtime/gateway-token"),
     ]
-    client = root / "secrets/SuperIPCam.exe"
-    if client.is_file():
-        command += ["--credential-client", str(client)]
     return command
 
 

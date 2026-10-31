@@ -4,7 +4,7 @@
 
 Prerequisites: Docker Engine, Docker Compose, a compatible CS2/PPPP camera reachable on a private network, and an O-Kam account with access to it. Vendor services must be reachable for account login and transport bootstrap.
 
-For encrypted account-issued camera credentials, supply your own compatible legacy official client at `secrets/SuperIPCam.exe`. The directory is mounted read-only. No proprietary executable or embedded vendor key is bundled; the file is inspected as data and never executed.
+Encrypted account-issued camera credentials are decoded in-process using the supported securityPwd protocol. No official-client executable, credentials mount or manual file download is required.
 
 ```sh
 docker compose up -d
@@ -17,7 +17,7 @@ Compose builds the bridge and dashboard and starts four services:
 | --- | --- |
 | `init` | Creates a random private gateway token in the shared named volume; exits after initialization. |
 | `bridge` | Python API, bound to `127.0.0.1:8098` by default. |
-| `web` | Static dashboard and same-origin nginx API proxy, bound to `127.0.0.1:8080` by default. |
+| `web` | Static dashboard and same-origin nginx API proxy, bound to `0.0.0.0:8080` by default. |
 | `mediamtx` | Separate upstream MediaMTX 1.21.2 container for optional RTSP/TCP publication, listening on `0.0.0.0:8554` by default. |
 
 The web service starts after the API health check passes. `/health` reports API liveness; it does not test camera availability or vendor connectivity. The gateway token is supplied privately by nginx, never configured in browser JavaScript.
@@ -25,7 +25,7 @@ The web service starts after the API health check passes. `/health` reports API 
 Optional `.env` settings:
 
 ```dotenv
-WEB_LISTEN=127.0.0.1
+WEB_LISTEN=0.0.0.0
 WEB_PORT=8080
 BRIDGE_PORT=8098
 RTSP_LISTEN=0.0.0.0
@@ -34,7 +34,7 @@ ONVIF_LISTEN=0.0.0.0
 ONVIF_PORT=8899
 ```
 
-Set `WEB_LISTEN=0.0.0.0` to serve the dashboard on the host's network interfaces. The API stays on loopback. Allow access only from trusted clients and use a VPN or HTTPS reverse proxy for remote access. The bundled listeners use HTTP; login credentials, cookies and video require transport protection on untrusted networks.
+The dashboard listens on host network interfaces by default. Set `WEB_LISTEN=127.0.0.1` for host-only access. The API stays on loopback. Allow access only from trusted clients and use a VPN or HTTPS reverse proxy for remote access. The bundled listeners use HTTP; login credentials, cookies and video require transport protection on untrusted networks.
 
 ```sh
 docker compose logs --tail=100 bridge web
@@ -42,6 +42,15 @@ docker compose down
 ```
 
 Stopping or restarting the API discards account sessions and active connections. The named gateway and recordings volumes survive `down`; `down -v` deletes both, including all server recordings, SD cache and their manifest. The next startup creates a new gateway token. Before sharing logs, remove identifiers, private addresses and any secrets.
+
+## Update an existing Docker installation
+
+```sh
+git pull
+docker compose up -d --build
+```
+
+The rebuild is required when updating source on a machine with an existing image. From 0.8.1 onward, no `secrets/SuperIPCam.exe` is needed. Existing recordings and gateway volumes are retained. Log in and reconnect after the API is recreated. An existing `WEB_LISTEN=127.0.0.1` override still restricts dashboard access; set it to `0.0.0.0` for LAN access.
 
 ## macOS: native camera API, Docker dashboard
 
@@ -69,11 +78,10 @@ Use Python 3.12+ and install FFmpeg through your operating system's package mana
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
-python -m okam_bridge api --listen 127.0.0.1 --port 8098 \
-  --credential-client /path/to/SuperIPCam.exe
+python -m okam_bridge api --listen 127.0.0.1 --port 8098
 ```
 
-Omit `--credential-client` only when encrypted credential decoding is not needed. `BRIDGE_CREDENTIAL_CLIENT` is an alternative to that flag. Native API mode serves `/docs/` and `/openapi.json`; it does not serve the dashboard.
+Credential decoding is built in. `--credential-client` / `BRIDGE_CREDENTIAL_CLIENT` remains an optional compatibility override for alternate vendor salts, and is not configured by Compose or the macOS launcher. Native API mode serves `/docs/` and `/openapi.json`; it does not serve the dashboard.
 
 For a standalone protected API, set `BRIDGE_ACCESS_TOKEN` to a strong random secret before launch, or use `--access-token-file /private/path/token`. The bridge access token protects account login; successful login then returns an account session token. Supply the bridge token as `Authorization: Bearer <bridge-access-token>` on login. A non-loopback API listener requires access protection. Keep the API private whenever possible.
 
@@ -89,7 +97,7 @@ In another terminal:
 ```sh
 docker build -t okam-local-web ./web
 docker run --rm --network host \
-  -e WEB_LISTEN=127.0.0.1 -e WEB_PORT=8080 -e BRIDGE_PORT=8098 \
+  -e WEB_LISTEN=0.0.0.0 -e WEB_PORT=8080 -e BRIDGE_PORT=8098 \
   --mount type=bind,src=/private/path/token,dst=/run/bridge/gateway-token,readonly \
   okam-local-web
 ```
@@ -109,8 +117,8 @@ On macOS, the API continues to handle physical-camera UDP natively, preserving t
 | Symptom | Check |
 | --- | --- |
 | Account login fails | Account credentials and vendor HTTPS reachability. |
-| `password_decoder_required` | Provide the official client file and restart/reconnect as needed. |
-| `credential_key_not_found` | The supplied client may be incompatible; do not publish the file or extracted keys. |
+| `encrypted_credentials_invalid` | Refresh the account catalog and reconnect; the account record may be stale or use an unsupported credential variant. |
+| `credential_key_not_found` | Only relevant to an explicitly supplied legacy client-file override; remove the override for the built-in protocol. |
 | No LAN reply | Camera private IPv4, host routing, firewall and UDP transport reachability. |
 | No video | Correct native credentials, compatible transport, FFmpeg, camera state and selected lens. |
 | Open native service port but no RTSP/ONVIF login | TCP availability is not protocol or credential verification. |

@@ -27,8 +27,31 @@ class CredentialsTests(unittest.TestCase):
         self.assertEqual(decoder.decode(security, "12345"), "camera-secret")
         self.assertNotIn("camera-secret", repr(decoder))
 
-    def test_missing_client_is_actionable(self):
-        with self.assertRaisesRegex(CredentialError, "password_decoder_required"):
+    def test_builtin_decoder_works_without_client_or_filesystem(self):
+        # Fixed known-answer vector for a synthetic account, not private footage
+        # or credentials. Validates the shipped protocol salt and AES derivation.
+        with patch(
+            "okam_bridge.credentials.Path",
+            side_effect=AssertionError("No external file allowed"),
+        ):
+            decoder = CredentialDecoder()
+            self.assertEqual(
+                decoder.decode("24ad1ad339386f9e0c5cf60d82c7b819", "12345"),
+                "bridge-test",
+            )
+            self.assertEqual(
+                decoder.decode("24ad1ad339386f9e0c5cf60d82c7b819", "12345"),
+                "bridge-test",
+            )
+
+    def test_obsolete_missing_client_override_does_not_break_supported_protocol(self):
+        decoder = CredentialDecoder("/missing/SuperIPCam.exe")
+        self.assertEqual(
+            decoder.decode("24ad1ad339386f9e0c5cf60d82c7b819", "12345"), "bridge-test"
+        )
+
+    def test_unknown_encrypted_credentials_fail_closed_without_file_dependency(self):
+        with self.assertRaisesRegex(CredentialError, "encrypted_credentials_invalid"):
             CredentialDecoder().decode("a" * 32, "123")
 
     def test_wrong_client_and_bad_inputs_fail_closed(self):

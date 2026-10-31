@@ -18,7 +18,6 @@ services:
     network_mode: host
     command: ["api", "--listen", "127.0.0.1", "--port", "${BRIDGE_PORT:-8098}", "--access-token-file", "/run/bridge/gateway-token"]
     environment:
-      BRIDGE_CREDENTIAL_CLIENT: /run/credentials/SuperIPCam.exe
       BRIDGE_HEALTH_PORT: "${BRIDGE_PORT:-8098}"
       BRIDGE_RTSP_INTERNAL_URL: "rtsp://127.0.0.1:${RTSP_PORT:-8554}"
       BRIDGE_RTSP_PORT: "${RTSP_PORT:-8554}"
@@ -27,7 +26,6 @@ services:
       BRIDGE_ONVIF_LISTEN: "${ONVIF_LISTEN:-0.0.0.0}"
     volumes:
       - gateway:/run/bridge:ro
-      - ./secrets:/run/credentials:ro
       - recordings:/recordings
     depends_on:
       init:
@@ -47,7 +45,7 @@ services:
     build: ./web
     network_mode: host
     environment:
-      WEB_LISTEN: "${WEB_LISTEN:-127.0.0.1}"
+      WEB_LISTEN: "${WEB_LISTEN:-0.0.0.0}"
       WEB_PORT: "${WEB_PORT:-8080}"
       BRIDGE_PORT: "${BRIDGE_PORT:-8098}"
     volumes:
