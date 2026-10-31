@@ -163,6 +163,16 @@ class ArchiveManager:
                     self.recorders[entry.export_id] = workers
                     for worker in workers:
                         worker.start()
+        with workspace.lock:
+            if data["enabled"]:
+                workspace.saved_recordings[camera_id] = dict(
+                    enabled=True,
+                    segment_seconds=segment,
+                    retention_days=retention,
+                    max_bytes=quota,
+                )
+            else:
+                workspace.saved_recordings.pop(camera_id, None)
         return self.status(workspace, camera_id)
 
     def _sd(self, workspace, camera_id):

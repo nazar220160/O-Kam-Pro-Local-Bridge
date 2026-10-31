@@ -1,4 +1,4 @@
-# HTTP API · v0.9.0
+# HTTP API · v0.10.0
 
 The Python API is independent of the dashboard. With Compose, use `http://localhost:8080` for both the dashboard and proxied API. For a native process started with `python -m okam_bridge api --port 8098`, use `http://localhost:8098`.
 
@@ -6,7 +6,7 @@ The running service provides a self-contained reference at `/docs/` and an OpenA
 
 ## Authentication
 
-Log in using your O-Kam account. Login contacts vendor HTTPS services; account sessions and the account password are not persisted to disk by this workflow. The response sets an HttpOnly, SameSite=Strict `okam_account` cookie and returns `session_token` for API clients.
+Log in using your O-Kam account. Login contacts vendor HTTPS services; encrypted session/transport state and the vendor protocol password digest are persisted for automatic recovery; the original account password is not stored. The response sets an HttpOnly, SameSite=Strict `okam_account` cookie and returns `session_token` for API clients.
 
 ```sh
 curl -c session.cookies -H 'Content-Type: application/json' \
@@ -15,7 +15,7 @@ curl -c session.cookies -H 'Content-Type: application/json' \
 curl -b session.cookies http://localhost:8080/api/cameras
 ```
 
-Use a private request file or another secure input mechanism for real secrets; the inline body above is illustrative. Protect cookie files and login responses. A programmatic client can send `Authorization: Bearer <session_token>` instead of the cookie. Sessions normally expire after 12 hours; an active bridge publication exempts its owning session from that TTL so closing the tab does not stop video. Enabling publication extends the browser cookie lifetime to one year, without making server state persistent. Logout or API restart revokes the session and associated media/publication credentials.
+Use a private request file or another secure input mechanism for real secrets; the inline body above is illustrative. Protect cookie files and login responses. A programmatic client can send `Authorization: Bearer <session_token>` instead of the cookie. Sessions normally last one year; desired publications retain their owning session. Cookie/Bearer sessions, native camera settings and publication credentials survive restart in encrypted state. Explicit logout durably removes the account session and revokes its publications. Repeated valid login to the same account resumes the same workspace.
 
 The Compose gateway supplies its own private bridge authentication automatically. When logging in directly to an API protected by `BRIDGE_ACCESS_TOKEN` or `--access-token-file`, supply that token as `Authorization: Bearer <bridge-access-token>` on the login request. It is distinct from the account session token returned by login. Media-only Basic credentials can be obtained through `GET /api/account/player`; they cannot control cameras.
 
@@ -70,7 +70,7 @@ See [bridge exports](bridge-exports.md) for setup and client examples. These end
 
 `GET /api/cameras/{camera_id}/export` returns availability, enabled state, per-observed-lens profiles and credential-free RTSP/ONVIF addresses. Enable with `POST` and `{"enabled":true,"rtsp":true,"onvif":true}`; optional `advertise_host` is a client-reachable host name or IPv4 address, without a scheme or port. Use `onvif:false` for RTSP only; ONVIF requires RTSP. Enabling requires a connected camera and a reachable MediaMTX listener. Reapplying configuration creates a new publication ID and credentials. Disable with `{"enabled":false}`.
 
-`POST /api/cameras/{camera_id}/export/credentials` with `{}` reveals `username` (`bridge`) and a generated publication password. Ordinary status responses and URLs contain no password. These credentials are separate from account, camera and browser-player credentials. Logout, disconnect, disabling or API restart revokes the publication.
+`POST /api/cameras/{camera_id}/export/credentials` with `{}` reveals `username` (`bridge`) and a generated publication password. Ordinary status responses and URLs contain no password. These credentials are separate from account, camera and browser-player credentials. Logout, disconnect or disabling stops publication. API restart automatically restores it with the same paths/password.
 
 `POST /api/exports/auth` accepts the MediaMTX HTTP-auth JSON fields `protocol`, `path`, `user`, `password` and `action`. It is an authorization decision only: no account login/cookie or session creation. Only `protocol:"rtsp"` and an exact active `<export_id>/lens<N>` path for an observed lens are eligible. The internal `publish` role can only `publish`; publication user `bridge` can only `read`. Cross-role actions, unknown paths and revoked credentials fail. Keep this callback reachable by MediaMTX, not as a client login endpoint.
 

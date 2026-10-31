@@ -2,7 +2,7 @@
 
 **Your cameras. Your network. Your API.**
 
-[![Version 0.9.0](https://img.shields.io/badge/version-0.9.0-95d75d)](CHANGELOG.md)
+[![Version 0.10.0](https://img.shields.io/badge/version-0.10.0-95d75d)](CHANGELOG.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![API reference](https://img.shields.io/badge/API-OpenAPI_3.1-527ac9)](docs/api.md)
 
@@ -21,6 +21,7 @@ A self-hosted dashboard and HTTP API for compatible O-Kam Pro cameras using the 
 - PTZ, presets, image settings and model-dependent native controls.
 - Account camera catalog, redacted metadata and a control console.
 - Opt-in server recording with retention/quota, SD-card clip import, authenticated downloads and RTSP replay.
+- Encrypted persistent sessions and automatic camera/publication/recording restoration after restart.
 - Separate Python API and static nginx dashboard, with a documented OpenAPI contract.
 
 **Compatibility matters:** this bridge supports the CS2/PPPP transport family, not every camera sold under the O-Kam name. Cameras must be reachable on your LAN or a routed private network. Account login and transport bootstrap contact vendor services; this is not a cloud relay or WAN video transport.
@@ -73,7 +74,7 @@ python -m okam_bridge api --port 8098
 
 The API serves JSON and API documentation. The dashboard is the separate `web/` service. Credential decoding is built in; no `--credential-client` argument is needed. See [deployment](docs/deployment.md) for access protection and frontend configuration, and [API examples](docs/api.md) for login, video and controls.
 
-Publication credentials are separate from account, camera and browser-player credentials and appear automatically in selectable text fields when publication is enabled. Closing the dashboard tab keeps an enabled publication running; logout, camera disconnect, disabling publication or API restart revokes it. After restart, sign in and enable it again.
+Publication credentials are separate from account, camera and browser-player credentials and appear automatically in selectable text fields when publication is enabled. Account sessions, camera connections, quality, publication IDs/passwords and enabled server recording are stored in encrypted persistent state and restored automatically after API/container restart. RTSP URLs remain unchanged, so an NVR does not need reconfiguration. Explicit logout removes the saved session and stops its publications; disconnect/disable remains off after restart.
 
 ## Project
 

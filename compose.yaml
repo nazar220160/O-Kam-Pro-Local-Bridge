@@ -23,10 +23,12 @@ services:
       BRIDGE_RTSP_PORT: "${RTSP_PORT:-8554}"
       BRIDGE_ONVIF_PORT: "${ONVIF_PORT:-8899}"
       BRIDGE_RECORDINGS_DIR: /recordings
+      BRIDGE_STATE_DIR: /state
       BRIDGE_ONVIF_LISTEN: "${ONVIF_LISTEN:-0.0.0.0}"
     volumes:
       - gateway:/run/bridge:ro
       - recordings:/recordings
+      - state:/state
     depends_on:
       init:
         condition: service_completed_successfully
@@ -81,3 +83,4 @@ services:
 volumes:
   gateway:
   recordings:
+  state:

@@ -19,7 +19,7 @@ COOKIE = "okam_account"
 
 
 class AppServer(BridgeServer):
-    def __init__(self, address, manager, token=""):
+    def __init__(self, address, manager, token="", state_dir=None):
         self.manager = manager
         self.exports = ExportManager(
             getattr(manager.backend, "ffmpeg", None)
@@ -32,6 +32,12 @@ class AppServer(BridgeServer):
         super().__init__(address, {}, token, handler_class=AppHandler)
         self._reaper = threading.Thread(target=self._prune, daemon=True)
         self._reaper.start()
+        self.persistence = None
+        if state_dir is not None:
+            from .state import StateService
+
+            self.persistence = StateService(manager, self.exports, state_dir)
+            self.persistence.start()
 
     def _prune(self):
         while not self._closing.wait(60):
@@ -41,9 +47,13 @@ class AppServer(BridgeServer):
         self._closing.set()
         if self._reaper:
             self._reaper.join(timeout=2)
-        super().server_close()
-        self.exports.close()
-        self.manager.close()
+        try:
+            if self.persistence:
+                self.persistence.close()
+        finally:
+            super().server_close()
+            self.exports.close()
+            self.manager.close()
 
 
 class AppHandler(Handler):
@@ -119,6 +129,19 @@ class AppHandler(Handler):
         return workspace.cameras if workspace else {}
 
     def _json(self, status, value, headers=None):
+        persistence = getattr(self.server, "persistence", None)
+        if persistence and self.command == "POST" and 200 <= status < 300:
+            try:
+                persistence.checkpoint()
+            except (OSError, ValueError):
+                return self._send(
+                    503, json.dumps({"error": "state_save_failed"}), "application/json"
+                )
+        if urlsplit(self.path).path == "/api/account" and status == 200 and self._key():
+            headers = {
+                **(headers or {}),
+                "Set-Cookie": f"{COOKIE}={self._key()}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000",
+            }
         return self._send(
             status,
             json.dumps(value, ensure_ascii=False),
@@ -182,6 +205,12 @@ class AppHandler(Handler):
                 {
                     "ok": True,
                     "mode": "api",
+                    "persistence": {
+                        "enabled": bool(getattr(self.server, "persistence", None)),
+                        "error": getattr(
+                            getattr(self.server, "persistence", None), "error", None
+                        ),
+                    },
                     "version": __import__("okam_bridge").__version__,
                 },
             )
@@ -349,7 +378,7 @@ class AppHandler(Handler):
                 key = self.server.manager.login(
                     data.get("username"), data.get("password")
                 )
-                if old:
+                if old and old != key:
                     self.server.manager.logout(old)
                 workspace = self.server.manager.get(key)
                 return self._json(
@@ -361,7 +390,7 @@ class AppHandler(Handler):
                         "expires_in": int(self.server.manager.ttl),
                     },
                     {
-                        "Set-Cookie": f"{COOKIE}={key}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200"
+                        "Set-Cookie": f"{COOKIE}={key}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000"
                     },
                 )
             workspace = self._workspace()
@@ -425,7 +454,7 @@ class AppHandler(Handler):
                     value = self.server.exports.configure(workspace, parts[2], data)
                     if not value["enabled"]:
                         workspace.created = __import__("time").monotonic()
-                    age = 31536000 if value["enabled"] else 43200
+                    age = 31536000
                     return self._json(
                         200,
                         value,

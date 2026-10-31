@@ -409,8 +409,14 @@ class ExportManager:
             raise ExportError("rtsp_service_unavailable")
         if onvif:
             self._ensure_onvif()
+        saved = getattr(workspace, "saved_exports", {}).get(camera_id, {})
         entry = Publication(
-            workspace, camera_id, "e" + secrets.token_hex(10), host, onvif
+            workspace,
+            camera_id,
+            saved.get("export_id") or "e" + secrets.token_hex(10),
+            host,
+            onvif,
+            password=saved.get("password") or secrets.token_urlsafe(24),
         )
         with workspace.lock:
             with self.lock:
@@ -433,6 +439,14 @@ class ExportManager:
                     old.stop.set()
                     self.entries.pop(old.export_id, None)
                 self.entries[entry.export_id] = entry
+                workspace.saved_exports[camera_id] = {
+                    "enabled": True,
+                    "onvif": onvif,
+                    "rtsp": True,
+                    "advertise_host": host,
+                    "export_id": entry.export_id,
+                    "password": entry.password,
+                }
         self._stop_entries(previous)
         entry.motion = MotionController(lambda: self._camera(entry))
         if entry.onvif:
@@ -723,6 +737,11 @@ class ExportManager:
         return False
 
     def disable(self, workspace, camera_id=None):
+        with workspace.lock:
+            for key, saved in getattr(workspace, "saved_exports", {}).items():
+                if camera_id is None or key == camera_id:
+                    saved["enabled"] = False
+                    workspace.saved_recordings.pop(key, None)
         with self.lock:
             generations = self.generations.setdefault(workspace, {})
             targets = list(generations) if camera_id is None else [camera_id]

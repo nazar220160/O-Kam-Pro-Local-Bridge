@@ -178,7 +178,12 @@ def app(args):
             ffmpeg, args.credential_client or os.environ.get("BRIDGE_CREDENTIAL_CLIENT")
         )
     )
-    server = AppServer((args.listen, args.port), manager, token)
+    server = AppServer(
+        (args.listen, args.port),
+        manager,
+        token,
+        state_dir=os.environ.get("BRIDGE_STATE_DIR", ".runtime/state"),
+    )
 
     def terminate(_signum, _frame):
         raise KeyboardInterrupt

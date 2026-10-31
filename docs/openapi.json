@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "O-Kam Pro Local Bridge API",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "license": {
       "name": "MIT"
     },
@@ -409,12 +409,12 @@
     },
     "/api/account/login": {
       "post": {
-        "summary": "Create an in-memory account session",
+        "summary": "Create or resume a persistent account session",
         "operationId": "post_api_account_login",
         "tags": [
           "Account"
         ],
-        "description": "O-Kam account credentials are sent to vendor HTTPS services. Password is never persisted. Returns HttpOnly SameSite=Strict cookie and a Bearer session token for API clients. Protect both as secrets. If a bridge access token is configured, authenticate this request with Authorization: Bearer <bridge-access-token> (or Basic bridge:<token>); Compose web gateway supplies its private gateway header automatically. Sessions expire after 12 hours and are revoked on logout/restart.",
+        "description": "O-Kam account credentials are sent to vendor HTTPS services. The original password is not stored; the vendor protocol password digest and authorized session/transport credentials are saved in encrypted state for unattended recovery. Returns HttpOnly SameSite=Strict cookie and a Bearer session token for API clients. Protect both as secrets. If a bridge access token is configured, authenticate this request with Authorization: Bearer <bridge-access-token> (or Basic bridge:<token>); Compose web gateway supplies its private gateway header automatically. Sessions normally last one year; enabled publications retain their session. API restart restores sessions/cameras/publications. Explicit logout removes saved state.",
         "parameters": [],
         "responses": {
           "200": {
@@ -2098,7 +2098,7 @@
         "tags": [
           "Cameras"
         ],
-        "description": "Requires connected camera. Publishes original H264 for observed lenses over RTSP/TCP; ONVIF exposes Device/Media, bounded PTZ when a motor is reported, PullPoint events from actual native observations, and Recording/Search/Replay for completed server/SD-cache clips. No native camera settings are changed. Active publication keeps the camera and owning in-memory account session alive; closing a browser tab does not stop it. Logout, explicit disconnect, disabling publication or server restart revokes it. Enabling extends the account cookie lifetime while publication is active. No ONVIF certification, absolute positioning, reverse playback or events inferred from video are claimed.",
+        "description": "Requires connected camera. Publishes original H264 for observed lenses over RTSP/TCP; ONVIF exposes Device/Media, bounded PTZ when a motor is reported, PullPoint events from actual native observations, and Recording/Search/Replay for completed server/SD-cache clips. No native camera settings are changed. Active publication keeps the camera and owning account session alive; closing a browser tab does not stop it. Logout, explicit disconnect or disabling publication stops it. Server restart restores desired publication with the same paths and credentials. Enabling extends the account cookie lifetime while publication is active. No ONVIF certification, absolute positioning, reverse playback or events inferred from video are claimed.",
         "parameters": [
           {
             "name": "camera_id",

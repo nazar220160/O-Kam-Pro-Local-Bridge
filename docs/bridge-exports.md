@@ -15,7 +15,7 @@ Camera encoder configuration writes, absolute/relative PTZ positioning, ONVIF re
 5. Click **Включить / применить**. Copy the returned device address or the RTSP address for the required lens.
 6. The generated username/password appear automatically as selectable text fields. Copy them into the separate credential fields in your client.
 
-Ordinary status and copied addresses contain no embedded password. Publication credentials are not the camera password, O-Kam account credentials or browser-player credentials. Reapplying configuration replaces the publication ID and credentials; update clients afterwards.
+Ordinary status and copied addresses contain no embedded password. Publication credentials are not the camera password, O-Kam account credentials or browser-player credentials. Reapplying configuration or restarting the API preserves the publication ID and credentials.
 
 ## VLC and NVR setup
 
@@ -68,7 +68,7 @@ A custom native deployment uses `BRIDGE_RTSP_INTERNAL_URL` for the API-to-MediaM
 
 ## Lifecycle and diagnostics
 
-Enabled publication keeps its owning account session exempt from the normal 12-hour TTL and extends its browser cookie to one year. Closing the tab does not stop video. All publication state and passwords remain in RAM: logout, camera disconnect, explicit **Выключить экспорт**, or API restart revokes publication. After restart, sign in, reconnect and enable again. Cookie longevity does not restore lost server state.
+Enabled publications retain their owning session, including camera outages. Cookie/session lifetime is normally one year. Encrypted state stores the session token, camera transport configuration, desired connections, publication ID/password and recording settings. Closing a tab does not stop video. API/container restart restores configured connections and publications automatically, using the same RTSP paths and credentials. Camera/MediaMTX readiness is retried in the background. Explicit logout durably removes the session; disconnect or disabling export persists the off choice. Reapplying an existing publication preserves its ID/password. A fresh account after explicit logout starts with new credentials.
 
 The ONVIF listener opens lazily on the first ONVIF enable. It remains bound until server restart even after all publications are disabled; missing or revoked publication paths return 404. RTSP authorization rejects revoked publication paths and credentials.
 
@@ -94,7 +94,7 @@ In the same dashboard service tab, use the separate archive panel:
 
 ONVIF Recording/Search enumerates completed server recordings and imported SD cache files. Uncached SD entries must first be listed/imported through the dashboard or HTTP API; they are not advertised as playable ONVIF records. Each clip/lens is a separate recording token. GetReplayUri starts ordinary forward playback from the clip beginning. A new request for the same clip restarts its publisher. These services do not implement a continuous Profile G timeline or reverse/seek semantics.
 
-Recordings persist across logout/restart, scoped by account and camera; publication credentials, recording workers, subscriptions and replay processes do not. Sign in again to access retained files, reconnect and re-enable publication for ONVIF replay. Recording does not automatically resume after restart. Age retention applies to server recordings; imported SD clips keep their original timestamps and are not deleted merely because the source is old. Both sources share the camera quota, evicted oldest first when a new file is added. Limits are enforced at completion/import, so active segments/imports need additional free disk space. SD import requires at least 2 GiB free, with at most two active imports globally. These are per-camera limits, not a global disk reservation.
+Recordings persist across logout/restart, scoped by account and camera; publication credentials and desired recording settings also persist. Enabled recording and camera publication resume automatically after restart. Subscriptions, active replay processes and finite SD import jobs are transient; clients reopen them. Age retention applies to server recordings; imported SD clips keep their original timestamps and are not deleted merely because the source is old. Both sources share the camera quota, evicted oldest first when a new file is added. Limits are enforced at completion/import, so active segments/imports need additional free disk space. SD import requires at least 2 GiB free, with at most two active imports globally. These are per-camera limits, not a global disk reservation.
 
 Linux Compose stores the private SQLite manifest and clips in the `recordings` named volume. The native macOS default is `.runtime/recordings`; override with `BRIDGE_RECORDINGS_DIR`. Back up/protect this directory as private footage. `docker compose down -v` deletes named-volume recordings. Explicit logout/off/disconnect stops active recording and replay but preserves completed files.
 

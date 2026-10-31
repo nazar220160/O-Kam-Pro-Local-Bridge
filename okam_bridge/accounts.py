@@ -71,6 +71,24 @@ class CatalogClient(Eye4AccountClient):
                 self._device_digest = kwargs.get("query", {}).get("pwd")
         return result
 
+    def refresh_login(self):
+        """Renew the vendor login using its persisted protocol digest."""
+        if not self.user_id or not self._device_digest:
+            raise AccountError("Account refresh is unavailable")
+        result = self._request_json(
+            "GET",
+            "/login/token",
+            query={
+                "userid": self.user_id,
+                "password": self._device_digest,
+                "type": "PC",
+            },
+        )
+        if not isinstance(result, dict) or not isinstance(result.get("token"), str):
+            raise AccountError("Account session could not be renewed")
+        self.login_token = result["token"]
+        return self.refresh_devices()
+
     def refresh_devices(self):
         if not self.user_id or not self._device_digest:
             raise AccountError("Account refresh is unavailable")
@@ -194,6 +212,8 @@ class Record:
     ip: str | None = None
     substream: int = 1
     quality: str | None = None
+    wanted: bool = False
+    cached_config: dict | None = field(default=None, repr=False)
 
 
 class AccountWorkspace:
@@ -203,12 +223,16 @@ class AccountWorkspace:
         self.account_id = client.user_id
         self.backend = backend
         self.lock = threading.RLock()
+        self.auth_lock = threading.RLock()
         self.closed = False
         self.records = {}
         self.cameras = {}
         self.created = time.monotonic()
+        self.expires_at = time.time() + 365 * 24 * 3600
         self.player_token = secrets.token_urlsafe(32)
         self.exports = None
+        self.saved_exports = {}
+        self.saved_recordings = {}
         self._sync(devices)
 
     def _sync(self, devices):
@@ -218,6 +242,7 @@ class AccountWorkspace:
             if isinstance(item, dict)
         }
         stale = []
+        removed = []
         with self.lock:
             if self.closed:
                 return
@@ -234,13 +259,34 @@ class AccountWorkspace:
                 fresh[key] = r
             for key, r in self.records.items():
                 if key not in fresh:
+                    removed.append(key)
                     r.generation += 1
                     if r.instance:
                         stale.append(r.instance)
                     self.cameras.pop(key, None)
             self.records = fresh
+        if self.exports:
+            for key in removed:
+                self.exports.disable(self, key)
         for camera in stale:
             camera.stop()
+
+    def adopt_client(self, client, devices):
+        with self.auth_lock:
+            old_client = self.client
+            self.client = client
+            self._sync(devices)
+            with self.lock:
+                for record in self.records.values():
+                    if record.cached_config and record.account_token:
+                        record.cached_config["account_token"] = record.account_token
+                    if record.instance and record.account_token:
+                        with record.instance.lock:
+                            record.instance.config["account_token"] = (
+                                record.account_token
+                            )
+            if old_client is not client and hasattr(old_client, "clear"):
+                old_client.clear()
 
     def refresh(self):
         with self.lock:
@@ -307,6 +353,7 @@ class AccountWorkspace:
             self.cameras.pop(camera_id, None)
             r.generation += 1
             generation = r.generation
+            r.wanted = True
             r.phase = "preparing"
             r.error = None
             r.substream = substream
@@ -320,14 +367,18 @@ class AccountWorkspace:
             daemon=True,
         ).start()
 
-    def _connect(self, r, generation, ip, substream, quality=None):
+    def _connect(self, r, generation, ip, substream, quality=None, prepared=None):
         camera = None
         success = False
         try:
             with self.lock:
                 if self.closed or r.generation != generation:
                     return
-            config = self.backend.prepare(r, self.account_id, ip, substream)
+            config = (
+                dict(prepared)
+                if prepared
+                else self.backend.prepare(r, self.account_id, ip, substream)
+            )
             if quality is not None:
                 config["quality"] = quality
             with self.lock:
@@ -335,6 +386,7 @@ class AccountWorkspace:
                     return
                 r.phase = "starting"
                 r.ip = config["ip"]
+                r.cached_config = dict(config)
                 camera = self.backend.camera(config)
                 r.instance = camera
             frames = camera.frames("jpeg")
@@ -467,6 +519,7 @@ class AccountWorkspace:
             r.generation += 1
             camera = r.instance
             r.instance = None
+            r.wanted = False
             r.phase = "disconnected"
             r.error = None
             self.cameras.pop(camera_id, None)
@@ -497,7 +550,7 @@ class AccountWorkspace:
 
 
 class AccountManager:
-    def __init__(self, client_factory=CatalogClient, backend=None, ttl=12 * 3600):
+    def __init__(self, client_factory=CatalogClient, backend=None, ttl=365 * 24 * 3600):
         self.client_factory = client_factory
         self.backend = backend
         self.ttl = ttl
@@ -525,26 +578,49 @@ class AccountManager:
             devices = client.enumerate(username, password)
         finally:
             password = ""
-        workspace = AccountWorkspace(username, client, devices, self.backend)
-        workspace.exports = self.exports
-        key = secrets.token_urlsafe(32)
         with self.lock:
             if self.closed:
-                workspace.close()
+                if hasattr(client, "clear"):
+                    client.clear()
                 raise WorkspaceError("session_expired")
+            # A verified login resumes the same account's workspace, preserving
+            # existing NVR connections rather than creating a parallel camera.
+            for key, existing in self.workspaces.items():
+                if (
+                    not existing.closed
+                    and existing.account_id == client.user_id
+                    and existing.username.casefold() == username.casefold()
+                ):
+                    existing.adopt_client(client, devices)
+                    existing.created = time.monotonic()
+                    existing.expires_at = time.time() + self.ttl
+                    return key
             if len(self.workspaces) >= 16:
-                workspace.close()
+                if hasattr(client, "clear"):
+                    client.clear()
                 raise WorkspaceError("too_many_sessions")
+            workspace = AccountWorkspace(username, client, devices, self.backend)
+            workspace.exports = self.exports
+            workspace.expires_at = time.time() + self.ttl
+            key = secrets.token_urlsafe(32)
             self.workspaces[key] = workspace
         return key
+
+    def _retained(self, workspace):
+        return any(v.get("enabled") for v in workspace.saved_exports.values()) or bool(
+            workspace.exports and workspace.exports.has_workspace(workspace)
+        )
 
     def get(self, key):
         with self.lock:
             workspace = self.workspaces.get(key)
         if (
             workspace
-            and time.monotonic() - workspace.created > self.ttl
-            and not (workspace.exports and workspace.exports.has_workspace(workspace))
+            and (
+                time.monotonic() - workspace.created > self.ttl
+                or time.time() > workspace.expires_at
+            )
+            and not self._retained(workspace)
         ):
             self.logout(key)
             return None
@@ -569,8 +645,11 @@ class AccountManager:
             keys = [
                 key
                 for key, w in self.workspaces.items()
-                if time.monotonic() - w.created > self.ttl
-                and not (w.exports and w.exports.has_workspace(w))
+                if (
+                    time.monotonic() - w.created > self.ttl
+                    or time.time() > w.expires_at
+                )
+                and not self._retained(w)
             ]
         for key in keys:
             self.logout(key)
@@ -579,7 +658,12 @@ class AccountManager:
         with self.lock:
             workspace = self.workspaces.pop(key, None)
         if workspace:
-            workspace.close()
+            persistence = getattr(self, "persistence", None)
+            try:
+                if persistence:
+                    persistence.checkpoint()
+            finally:
+                workspace.close()
 
     def close(self):
         with self.lock:

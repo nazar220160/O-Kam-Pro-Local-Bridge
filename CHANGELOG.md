@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0
+
+- Persist account sessions, encrypted vendor credentials, native connection settings, camera IP/quality and publication IDs/passwords in an atomic AES-256-GCM state volume.
+- Restore cameras, ONVIF/RTSP publications and enabled server recording in the background after restart; preserve NVR URLs and credentials and retry temporary outages.
+- Resume the same workspace on verified login; retain browser/player tokens across restart, while explicit logout/off/disconnect remains durable.
+- Remember selected camera/tab in browser preferences. Add the private state volume automatically to Compose.
+
+
 ## 0.9.0
 
 - Receive supported native G.711 A-law microphone frames and publish real AAC audio with each live RTSP lens stream. Preserve video-only fallback and separate bounded audio/video queues.

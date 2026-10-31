@@ -1,6 +1,6 @@
 FROM python:3.12-slim-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN mkdir -p /recordings && chown 65532:65532 /recordings
+RUN mkdir -p /recordings /state && chown 65532:65532 /recordings /state && chmod 700 /state
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt

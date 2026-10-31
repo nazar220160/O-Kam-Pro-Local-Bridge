@@ -10,6 +10,17 @@ const S = {
   connected: false,
   epoch: 0,
 };
+function uiPreference(update) {
+  if (!S.username) return {};
+  try {
+    const key = "okam-ui:" + S.username.toLowerCase();
+    const value = JSON.parse(localStorage.getItem(key) || "{}");
+    if (!update) return value;
+    const next = { ...value, ...update };
+    localStorage.setItem(key, JSON.stringify(next));
+    return next;
+  } catch { return {}; }
+}
 const labels = {
   disconnected: "Не подключена",
   preparing: "Готовим локальное подключение…",
@@ -24,6 +35,7 @@ const labels = {
   stopped: "Остановлена",
 };
 const errors = {
+  state_save_failed: "Не удалось сохранить настройки на диске сервера. Проверьте место и права хранилища состояния.",
   camera_not_streaming: "Сначала откройте видео выбранной камеры.",
   control_busy: "Очередь команд занята.",
   control_timeout: "Камера не выполнила команду вовремя.",
@@ -139,6 +151,8 @@ function showWorkspace(info) {
   $("login-screen").hidden = true;
   $("workspace").hidden = false;
   $("login-error").hidden = true;
+  const tab = uiPreference().tab;
+  if (["video", "controls", "services", "metadata"].includes(tab)) activateTab(tab);
 }
 function statusText(c) {
   return labels[c.state] || c.state || "Не подключена";
@@ -202,6 +216,7 @@ function selectCamera(id) {
     $("quality").value = c?.quality || "";
   }
   S.selected = id;
+  uiPreference({camera: id});
   renderList();
   renderDetails();
 }
@@ -532,6 +547,10 @@ async function fetchCatalog() {
   const cameras = await api("/api/cameras");
   if (epoch !== S.epoch) return;
   S.cameras = cameras;
+  if (!S.selected) {
+    const saved = uiPreference().camera;
+    if (S.cameras.some(c => c.id === saved)) selectCamera(saved);
+  }
   if (S.selected && !S.cameras.some((c) => c.id === S.selected))
     S.selected = null;
   renderList();
@@ -643,6 +662,7 @@ setInterval(poll, 2500);
 
 // Tab state is local UI state; changing tabs never starts a network probe.
 function activateTab(name, focus = false) {
+  uiPreference({tab: name});
   const tabs = Array.from(document.querySelectorAll("[data-tab]"));
   for (const tab of tabs) {
     const active = tab.dataset.tab === name;

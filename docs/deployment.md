@@ -41,7 +41,7 @@ docker compose logs --tail=100 bridge web
 docker compose down
 ```
 
-Stopping or restarting the API discards account sessions and active connections. The named gateway and recordings volumes survive `down`; `down -v` deletes both, including all server recordings, SD cache and their manifest. The next startup creates a new gateway token. Before sharing logs, remove identifiers, private addresses and any secrets.
+Stopping/restarting the API saves encrypted account sessions and desired camera/publication/recording state, then restores them on startup. The named gateway, state and recordings volumes survive `down`; `down -v` deletes them, including saved accounts/export credentials, all server recordings, SD cache and their manifest. The next startup creates a new gateway token. Before sharing logs, remove identifiers, private addresses and any secrets.
 
 ## Update an existing Docker installation
 
@@ -64,7 +64,7 @@ Use:
 
 Prerequisites: Python 3.11+, FFmpeg (`brew install ffmpeg`) and running Docker Desktop. The script prepares a local Python environment, starts the protected API on macOS loopback, stops the previous container API, and starts the Docker web and MediaMTX services using `compose.macos.yaml`. Nginx reaches the API through `host.docker.internal`; the browser still uses one origin. `.env` controls `WEB_PORT` and `BRIDGE_PORT` as before.
 
-Runtime files are under `.runtime/`: API log, PID and gateway token. The directory is mode 0700 and excluded from Git; only the gateway file is mounted read-only into nginx. Account sessions remain memory-only. A machine reboot requires rerunning `./start-macos.sh`. `docker compose down` alone does not stop the native API process.
+Runtime files are under `.runtime/`: API log, PID and gateway token. The directory is mode 0700 and excluded from Git; only the gateway file is mounted read-only into nginx. Account sessions persist in `.runtime/state` as an encrypted snapshot and are restored on the next launch. A machine reboot requires rerunning `./start-macos.sh`. `docker compose down` alone does not stop the native API process.
 
 If updating an already running native API, stop that process before rerunning the launcher. A listener using a different gateway token is rejected instead of silently attaching to it. The launcher does not change global Docker Desktop settings or restart unrelated containers.
 
@@ -128,6 +128,15 @@ The older `setup` / `serve` CLI workflow remains available for a private cached 
 
 ## Persistent archive storage
 
-The Linux bridge mounts a writable `recordings` named volume at `/recordings` while retaining its read-only container root filesystem. `BRIDGE_RECORDINGS_DIR=/recordings` selects it. Native macOS defaults to `.runtime/recordings` (private directory, excluded from Git); set `BRIDGE_RECORDINGS_DIR` before starting the API to use another disk. Recording and SD import remain opt-in, and recording workers do not resume after restart. Retained files are accessible after signing into the same account again.
+The Linux bridge mounts a writable `recordings` named volume at `/recordings` while retaining its read-only container root filesystem. `BRIDGE_RECORDINGS_DIR=/recordings` selects it. Native macOS defaults to `.runtime/recordings` (private directory, excluded from Git); set `BRIDGE_RECORDINGS_DIR` before starting the API to use another disk. Recording and SD import remain opt-in, and enabled recording workers resume after restart. Retained files are accessible after signing into the same account again.
 
 Back up the SQLite manifest and clips together while the API is stopped. Monitor disk usage across all cameras: retention/quota are per camera and are enforced when files complete, not a global capacity guarantee. See [archive behavior and limits](bridge-exports.md#server-and-sd-archives).
+
+
+## Sessions and automatic restart recovery
+
+No extra configuration is needed: Compose uses the `state` named volume at `/state` (`BRIDGE_STATE_DIR`); native API/macOS uses `.runtime/state`. Saved browser cookies/Bearer sessions remain valid across restart. Camera IP/quality, publication IDs/passwords and server recording policies are restored. Camera and MediaMTX startup are retried in the background, so API health can be ready before video. Vendor login tokens are refreshed using the encrypted protocol digest; cached authorized native configuration lets a local camera reconnect when vendor services are temporarily unavailable.
+
+Explicit logout deletes saved account state. Explicit disconnect/export disable/recording stop persists the off choice. Repeated valid login to the same account resumes its existing workspace rather than creating a second camera session. ONVIF subscription/search cursors and finite SD jobs are transient; clients recreate subscriptions when a listener reconnects. Completed archive files remain in their separate persistent recordings volume.
+
+On first upgrade from a version that had no persistent state, existing in-memory sessions cannot be recovered automatically: sign in/connect/enable once, then subsequent restarts retain them. Existing deployment-specific migration may preserve NVR publication credentials where they are already stored in Frigate.
