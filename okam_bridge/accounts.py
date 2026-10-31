@@ -208,6 +208,7 @@ class AccountWorkspace:
         self.cameras = {}
         self.created = time.monotonic()
         self.player_token = secrets.token_urlsafe(32)
+        self.exports = None
         self._sync(devices)
 
     def _sync(self, devices):
@@ -457,6 +458,8 @@ class AccountWorkspace:
             raise WorkspaceError(str(e)) from None
 
     def disconnect(self, camera_id):
+        if self.exports:
+            self.exports.disable(self, camera_id)
         with self.lock:
             if camera_id not in self.records:
                 raise KeyError(camera_id)
@@ -484,6 +487,8 @@ class AccountWorkspace:
             self.cameras.clear()
             self.records.clear()
             self.player_token = None
+        if self.exports:
+            self.exports.disable(self)
         for camera in cameras:
             camera.stop()
         if hasattr(self.client, "clear"):
@@ -496,6 +501,7 @@ class AccountManager:
         self.client_factory = client_factory
         self.backend = backend
         self.ttl = ttl
+        self.exports = None
         self.lock = threading.RLock()
         self.workspaces = {}
         self.closed = False
@@ -520,6 +526,7 @@ class AccountManager:
         finally:
             password = ""
         workspace = AccountWorkspace(username, client, devices, self.backend)
+        workspace.exports = self.exports
         key = secrets.token_urlsafe(32)
         with self.lock:
             if self.closed:
@@ -534,7 +541,11 @@ class AccountManager:
     def get(self, key):
         with self.lock:
             workspace = self.workspaces.get(key)
-        if workspace and time.monotonic() - workspace.created > self.ttl:
+        if (
+            workspace
+            and time.monotonic() - workspace.created > self.ttl
+            and not (workspace.exports and workspace.exports.has_workspace(workspace))
+        ):
             self.logout(key)
             return None
         return workspace
@@ -559,6 +570,7 @@ class AccountManager:
                 key
                 for key, w in self.workspaces.items()
                 if time.monotonic() - w.created > self.ttl
+                and not (w.exports and w.exports.has_workspace(w))
             ]
         for key in keys:
             self.logout(key)

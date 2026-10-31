@@ -6,6 +6,8 @@ import base64
 import binascii
 import threading
 import hmac
+import shutil
+from .exports import ExportManager, ExportError
 from urllib.parse import urlsplit
 from .web import BridgeServer, Handler
 from .accounts import AccountError, WorkspaceError
@@ -16,6 +18,12 @@ COOKIE = "okam_account"
 class AppServer(BridgeServer):
     def __init__(self, address, manager, token=""):
         self.manager = manager
+        self.exports = ExportManager(
+            getattr(manager.backend, "ffmpeg", None)
+            or shutil.which("ffmpeg")
+            or "ffmpeg"
+        )
+        manager.exports = self.exports
         self._closing = threading.Event()
         self._reaper = None
         super().__init__(address, {}, token, handler_class=AppHandler)
@@ -31,6 +39,7 @@ class AppServer(BridgeServer):
         if self._reaper:
             self._reaper.join(timeout=2)
         super().server_close()
+        self.exports.close()
         self.manager.close()
 
 
@@ -191,12 +200,19 @@ class AppHandler(Handler):
                 else self._json(404, {"error": "camera_not_found"})
             )
         if len(parts) == 4 and parts[:2] == ["api", "cameras"]:
+            if parts[3] == "export":
+                try:
+                    return self._json(
+                        200, self.server.exports.status(workspace, parts[2])
+                    )
+                except KeyError:
+                    return self._json(404, {"error": "camera_not_found"})
             if parts[3] == "services":
                 try:
                     return self._json(200, workspace.services(parts[2]))
                 except KeyError:
                     return self._json(404, {"error": "camera_not_found"})
-                except WorkspaceError as error:
+                except (WorkspaceError, ExportError) as error:
                     return self._json(400, {"error": str(error)})
             if parts[3] == "details":
                 try:
@@ -214,7 +230,7 @@ class AppHandler(Handler):
             return self._json(403, {"error": "forbidden_host"})
         if not self._origin_allowed():
             return self._json(403, {"error": "forbidden_origin"})
-        if not self._authorized():
+        if path != "/api/exports/auth" and not self._authorized():
             return self._json(401, {"error": "bridge_auth_required"})
         if (
             self.headers.get("Content-Type", "").split(";")[0].strip().lower()
@@ -231,6 +247,12 @@ class AppHandler(Handler):
         except (ValueError, UnicodeError):
             return self._json(400, {"error": "invalid_json"})
         try:
+            if path == "/api/exports/auth":
+                allowed = self.server.exports.authenticate(data)
+                return self._json(
+                    200 if allowed else 401,
+                    {"ok": True} if allowed else {"error": "media_auth_failed"},
+                )
             if path == "/api/account/login":
                 old = self._key()
                 key = self.server.manager.login(
@@ -267,7 +289,27 @@ class AppHandler(Handler):
                 workspace.refresh()
                 return self._json(200, workspace.catalog())
             parts = path.strip("/").split("/")
+            if (
+                len(parts) == 5
+                and parts[:2] == ["api", "cameras"]
+                and parts[3:] == ["export", "credentials"]
+            ):
+                return self._json(
+                    200, self.server.exports.credentials(workspace, parts[2])
+                )
             if len(parts) == 4 and parts[:2] == ["api", "cameras"]:
+                if parts[3] == "export":
+                    value = self.server.exports.configure(workspace, parts[2], data)
+                    if not value["enabled"]:
+                        workspace.created = __import__("time").monotonic()
+                    age = 31536000 if value["enabled"] else 43200
+                    return self._json(
+                        200,
+                        value,
+                        {
+                            "Set-Cookie": f"{COOKIE}={self._key()}; Path=/; HttpOnly; SameSite=Strict; Max-Age={age}"
+                        },
+                    )
                 if parts[3] == "credentials":
                     return self._json(200, workspace.reveal_credentials(parts[2]))
                 if parts[3] == "control":
@@ -293,7 +335,7 @@ class AppHandler(Handler):
             return self._json(401, {"error": "account_login_failed"})
         except KeyError:
             return self._json(404, {"error": "camera_not_found"})
-        except WorkspaceError as error:
+        except (WorkspaceError, ExportError) as error:
             code = str(error)
             return self._json(
                 409 if code == "connection_in_progress" else 400, {"error": code}

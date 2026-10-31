@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "O-Kam Pro Local Bridge API",
-    "version": "0.6.1",
+    "version": "0.7.0",
     "license": {
       "name": "MIT"
     },
@@ -1975,6 +1975,520 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ControlRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cameras/{camera_id}/export": {
+      "get": {
+        "summary": "Get bridge-owned RTSP/ONVIF publication status",
+        "operationId": "get_api_cameras_camera_id_export",
+        "tags": [
+          "Cameras"
+        ],
+        "description": "Independent of native camera service settings. Status and URLs never include publication credentials. Requires a live MediaMTX service for availability.",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ID returned by the current account catalog."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionBearer": []
+          },
+          {
+            "accountCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Enable or disable bridge-owned publication",
+        "operationId": "post_api_cameras_camera_id_export",
+        "tags": [
+          "Cameras"
+        ],
+        "description": "Requires connected camera. Publishes original H264 for observed lenses over RTSP/TCP; ONVIF is a read-only Device/Media subset. No native camera settings are changed. Active publication keeps the camera and owning in-memory account session alive; closing a browser tab does not stop it. Logout, explicit disconnect, disabling publication or server restart revokes it. Enabling extends the account cookie lifetime while publication is active. No ONVIF certification, PTZ, events or recording facade is claimed.",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ID returned by the current account catalog."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionBearer": []
+          },
+          {
+            "accountCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "rtsp": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "onvif": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "advertise_host": {
+                    "type": "string",
+                    "description": "Optional server LAN IP or DNS name for NVR access; inferred from camera route when omitted."
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cameras/{camera_id}/export/credentials": {
+      "post": {
+        "summary": "Reveal separate publication credentials",
+        "operationId": "post_api_cameras_camera_id_export_credentials",
+        "tags": [
+          "Cameras"
+        ],
+        "description": "Explicit sensitive operation. These credentials only access the selected publication and differ from account, native-camera and temporary HTTP player credentials. URLs never embed passwords.",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ID returned by the current account catalog."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "username": {
+                      "const": "bridge"
+                    },
+                    "password": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionBearer": []
+          },
+          {
+            "accountCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/exports/auth": {
+      "post": {
+        "summary": "MediaMTX authorization callback",
+        "operationId": "post_api_exports_auth",
+        "tags": [
+          "System"
+        ],
+        "description": "Server-to-server callback. No account cookie is used; the submitted per-publication or publisher credentials are verified against the exact enabled path and action. Returns 200 on authorization, 401 otherwise. Does not create or change publications.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "protocol": {
+                    "const": "rtsp"
+                  },
+                  "action": {
+                    "enum": [
+                      "read",
+                      "publish"
+                    ]
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
               }
             }
           }

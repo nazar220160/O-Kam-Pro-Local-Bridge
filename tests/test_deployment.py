@@ -22,6 +22,27 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         services = json.loads(result.stdout)["services"]
         self.assertNotIn("network_mode", services["bridge"])
-        self.assertNotIn("ports", services["bridge"])
+        self.assertTrue(
+            all(port["target"] != 8098 for port in services["bridge"].get("ports", []))
+        )
         self.assertEqual(services["web"]["environment"]["BRIDGE_HOST"], "bridge")
         self.assertEqual(services["web"]["ports"][0]["target"], 8080)
+
+    def test_linux_exports_honor_explicit_listener_restrictions(self):
+        import json
+
+        env = dict(os.environ, RTSP_LISTEN="127.0.0.1", ONVIF_LISTEN="127.0.0.1")
+        result = subprocess.run(
+            ["docker", "compose", "-f", "compose.yaml", "config", "--format", "json"],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        services = json.loads(result.stdout)["services"]
+        self.assertEqual(
+            services["mediamtx"]["environment"]["MTX_RTSPADDRESS"], "127.0.0.1:8554"
+        )
+        self.assertEqual(
+            services["bridge"]["environment"]["BRIDGE_ONVIF_LISTEN"], "127.0.0.1"
+        )

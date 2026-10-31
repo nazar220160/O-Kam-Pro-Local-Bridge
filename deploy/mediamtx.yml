@@ -1,0 +1,23 @@
+logLevel: warn
+logDestinations: [stdout]
+authMethod: http
+authHTTPAddress: http://127.0.0.1:8098/api/exports/auth
+authHTTPExclude: []
+rtsp: yes
+rtspAddress: :8554
+rtspTransports: [tcp]
+rtspAuthMethods: [basic]
+rtmp: no
+hls: no
+webrtc: no
+srt: no
+moq: no
+api: no
+metrics: no
+pprof: no
+playback: no
+pathDefaults:
+  source: publisher
+  overridePublisher: no
+paths:
+  all_others: {}

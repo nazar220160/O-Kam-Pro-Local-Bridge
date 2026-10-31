@@ -20,6 +20,10 @@ services:
     environment:
       BRIDGE_CREDENTIAL_CLIENT: /run/credentials/SuperIPCam.exe
       BRIDGE_HEALTH_PORT: "${BRIDGE_PORT:-8098}"
+      BRIDGE_RTSP_INTERNAL_URL: "rtsp://127.0.0.1:${RTSP_PORT:-8554}"
+      BRIDGE_RTSP_PORT: "${RTSP_PORT:-8554}"
+      BRIDGE_ONVIF_PORT: "${ONVIF_PORT:-8899}"
+      BRIDGE_ONVIF_LISTEN: "${ONVIF_LISTEN:-0.0.0.0}"
     volumes:
       - gateway:/run/bridge:ro
       - ./secrets:/run/credentials:ro
@@ -57,6 +61,21 @@ services:
     restart: unless-stopped
     read_only: true
     tmpfs: ["/tmp:size=32m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.2
+    network_mode: host
+    environment:
+      MTX_AUTHHTTPADDRESS: "http://127.0.0.1:${BRIDGE_PORT:-8098}/api/exports/auth"
+      MTX_RTSPADDRESS: "${RTSP_LISTEN:-0.0.0.0}:${RTSP_PORT:-8554}"
+    volumes:
+      - ./deploy/mediamtx.yml:/mediamtx.yml:ro
+    depends_on:
+      bridge:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
 volumes:

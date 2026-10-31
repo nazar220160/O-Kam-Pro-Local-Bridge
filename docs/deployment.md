@@ -11,13 +11,14 @@ docker compose up -d
 docker compose ps
 ```
 
-Compose builds and starts three services:
+Compose builds the bridge and dashboard and starts four services:
 
 | Service | Purpose |
 | --- | --- |
 | `init` | Creates a random private gateway token in the shared named volume; exits after initialization. |
 | `bridge` | Python API, bound to `127.0.0.1:8098` by default. |
 | `web` | Static dashboard and same-origin nginx API proxy, bound to `127.0.0.1:8080` by default. |
+| `mediamtx` | Separate upstream MediaMTX 1.21.2 container for optional RTSP/TCP publication, listening on `0.0.0.0:8554` by default. |
 
 The web service starts after the API health check passes. `/health` reports API liveness; it does not test camera availability or vendor connectivity. The gateway token is supplied privately by nginx, never configured in browser JavaScript.
 
@@ -27,6 +28,10 @@ Optional `.env` settings:
 WEB_LISTEN=127.0.0.1
 WEB_PORT=8080
 BRIDGE_PORT=8098
+RTSP_LISTEN=0.0.0.0
+RTSP_PORT=8554
+ONVIF_LISTEN=0.0.0.0
+ONVIF_PORT=8899
 ```
 
 Set `WEB_LISTEN=0.0.0.0` to serve the dashboard on the host's network interfaces. The API stays on loopback. Allow access only from trusted clients and use a VPN or HTTPS reverse proxy for remote access. The bundled listeners use HTTP; login credentials, cookies and video require transport protection on untrusted networks.
@@ -48,7 +53,7 @@ Use:
 ./start-macos.sh
 ```
 
-Prerequisites: Python 3.11+, FFmpeg (`brew install ffmpeg`) and running Docker Desktop. The script prepares a local Python environment, starts the protected API on macOS loopback, stops the previous container API, and starts only the Docker web service using `compose.macos.yaml`. Nginx reaches the API through `host.docker.internal`; the browser still uses one origin. `.env` controls `WEB_PORT` and `BRIDGE_PORT` as before.
+Prerequisites: Python 3.11+, FFmpeg (`brew install ffmpeg`) and running Docker Desktop. The script prepares a local Python environment, starts the protected API on macOS loopback, stops the previous container API, and starts the Docker web and MediaMTX services using `compose.macos.yaml`. Nginx reaches the API through `host.docker.internal`; the browser still uses one origin. `.env` controls `WEB_PORT` and `BRIDGE_PORT` as before.
 
 Runtime files are under `.runtime/`: API log, PID and gateway token. The directory is mode 0700 and excluded from Git; only the gateway file is mounted read-only into nginx. Account sessions remain memory-only. A machine reboot requires rerunning `./start-macos.sh`. `docker compose down` alone does not stop the native API process.
 
@@ -90,6 +95,14 @@ docker run --rm --network host \
 ```
 
 This frontend configuration expects the API on host loopback. Docker Desktop networking may not provide that path; adapt the nginx upstream for your environment or serve the frontend through a local nginx installation. Keep the browser and API behind one origin; simply opening `web/index.html` as a file is not a supported deployment.
+
+## Bridge publication listeners
+
+RTSP is served by MediaMTX over TCP; no camera is published until explicitly enabled. The API lazily opens the ONVIF listener after ONVIF publication is enabled, using `ONVIF_LISTEN` / `ONVIF_PORT` (defaults `0.0.0.0:8899`). After all publications are disabled, that listener remains open until API restart, but revoked or missing publication paths return 404. See [bridge exports](bridge-exports.md) for VLC/NVR setup and lifecycle.
+
+For a manually deployed native API, `BRIDGE_RTSP_INTERNAL_URL` is its credential-free upstream base URL (default `rtsp://127.0.0.1:8554`); `BRIDGE_RTSP_PORT` is the public port advertised to clients. `BRIDGE_ONVIF_LISTEN` and `BRIDGE_ONVIF_PORT` control its ONVIF listener. Compose and the macOS launcher map the `.env` settings above to these variables. Start MediaMTX with the supplied `deploy/mediamtx.yml` and a reachable HTTP authorization callback at `/api/exports/auth`; the standalone API command alone does not start an RTSP server.
+
+On macOS, the API continues to handle physical-camera UDP natively, preserving the 0.6.1 transport fix. MediaMTX publishes its TCP port from Docker. The all-container Desktop alternative remains experimental; WS-Discovery multicast generally cannot cross container NAT, so use the returned manual ONVIF address.
 
 ## Connection troubleshooting
 

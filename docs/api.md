@@ -1,4 +1,4 @@
-# HTTP API · v0.6.0
+# HTTP API · v0.7.0
 
 The Python API is independent of the dashboard. With Compose, use `http://localhost:8080` for both the dashboard and proxied API. For a native process started with `python -m okam_bridge api --port 8098`, use `http://localhost:8098`.
 
@@ -15,7 +15,7 @@ curl -c session.cookies -H 'Content-Type: application/json' \
 curl -b session.cookies http://localhost:8080/api/cameras
 ```
 
-Use a private request file or another secure input mechanism for real secrets; the inline body above is illustrative. Protect cookie files and login responses. A programmatic client can send `Authorization: Bearer <session_token>` instead of the cookie. Sessions expire after 12 hours; logout or API restart revokes them and associated media credentials.
+Use a private request file or another secure input mechanism for real secrets; the inline body above is illustrative. Protect cookie files and login responses. A programmatic client can send `Authorization: Bearer <session_token>` instead of the cookie. Sessions normally expire after 12 hours; an active bridge publication exempts its owning session from that TTL so closing the tab does not stop video. Enabling publication extends the browser cookie lifetime to one year, without making server state persistent. Logout or API restart revokes the session and associated media/publication credentials.
 
 The Compose gateway supplies its own private bridge authentication automatically. When logging in directly to an API protected by `BRIDGE_ACCESS_TOKEN` or `--access-token-file`, supply that token as `Authorization: Bearer <bridge-access-token>` on the login request. It is distinct from the account session token returned by login. Media-only Basic credentials can be obtained through `GET /api/account/player`; they cannot control cameras.
 
@@ -39,6 +39,9 @@ All paths below are relative to the service origin. Camera IDs are opaque values
 | GET | `/api/cameras/{camera_id}/details` | Redacted metadata and capability evidence. |
 | GET | `/api/cameras/{camera_id}/services` | Fixed native TCP service-port probes. |
 | POST | `/api/cameras/{camera_id}/control` | Validated native command. |
+| GET / POST | `/api/cameras/{camera_id}/export` | Read or explicitly configure bridge publication. |
+| POST | `/api/cameras/{camera_id}/export/credentials` | Explicitly reveal publication-only credentials. |
+| POST | `/api/exports/auth` | MediaMTX authorization callback; no account cookie required. |
 | POST | `/api/cameras/{camera_id}/credentials` | Explicitly reveal native camera credentials; sensitive. |
 | GET | `/api/cameras/{camera_id}/snapshot.jpg` | JPEG snapshot. |
 | GET | `/api/cameras/{camera_id}/mjpeg` | MJPEG stream. |
@@ -60,6 +63,16 @@ curl -b session.cookies http://localhost:8080/api/cameras/CAMERA_ID
 A `202` response means connection was scheduled. Poll until `viewable` is `true` or an error appears. Optional `ip` specifies a private IPv4 address; otherwise the bridge uses the account LAN address and then UID discovery. The `substream` selector accepts `0`, `1` or `2`. The independent `quality` selector accepts `high`, `medium`, `low` or `null`; null leaves camera quality unchanged. Native quality codes are 1, 2 and 4 respectively.
 
 Media routes accept `?lens=0` through `?lens=15`; choose lenses actually observed for the camera. Multiple lenses share one physical connection. Browser MJPEG is capped at 960 pixels wide and 5 fps. H.264 is not transcoded and may require an external player. A missing first frame returns `503`.
+
+## Bridge RTSP / ONVIF publication
+
+See [bridge exports](bridge-exports.md) for setup and client examples. These endpoints publish existing camera H.264 through the bridge; they do not modify native camera ONVIF/RTSP settings.
+
+`GET /api/cameras/{camera_id}/export` returns availability, enabled state, per-observed-lens profiles and credential-free RTSP/ONVIF addresses. Enable with `POST` and `{"enabled":true,"rtsp":true,"onvif":true}`; optional `advertise_host` is a client-reachable host name or IPv4 address, without a scheme or port. Use `onvif:false` for RTSP only; ONVIF requires RTSP. Enabling requires a connected camera and a reachable MediaMTX listener. Reapplying configuration creates a new publication ID and credentials. Disable with `{"enabled":false}`.
+
+`POST /api/cameras/{camera_id}/export/credentials` with `{}` reveals `username` (`bridge`) and a generated publication password. Ordinary status responses and URLs contain no password. These credentials are separate from account, camera and browser-player credentials. Logout, disconnect, disabling or API restart revokes the publication.
+
+`POST /api/exports/auth` accepts the MediaMTX HTTP-auth JSON fields `protocol`, `path`, `user`, `password` and `action`. It is an authorization decision only: no account login/cookie or session creation. Only `protocol:"rtsp"` and an exact active `<export_id>/lens<N>` path for an observed lens are eligible. The internal `publish` role can only `publish`; publication user `bridge` can only `read`. Cross-role actions, unknown paths and revoked credentials fail. Keep this callback reachable by MediaMTX, not as a client login endpoint.
 
 ## Native controls
 

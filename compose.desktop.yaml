@@ -3,6 +3,11 @@ services:
   bridge:
     network_mode: !reset null
     networks: [default]
+    environment:
+      BRIDGE_RTSP_INTERNAL_URL: rtsp://mediamtx:8554
+      BRIDGE_ONVIF_LISTEN: "0.0.0.0"
+    ports:
+      - "${ONVIF_LISTEN:-0.0.0.0}:${ONVIF_PORT:-8899}:${ONVIF_PORT:-8899}"
     command: ["api", "--listen", "0.0.0.0", "--port", "${BRIDGE_PORT:-8098}", "--access-token-file", "/run/bridge/gateway-token"]
   web:
     network_mode: !reset null
@@ -13,5 +18,13 @@ services:
       WEB_LISTEN: "0.0.0.0"
       WEB_PORT: "8080"
       BRIDGE_HOST: bridge
+  mediamtx:
+    network_mode: !reset null
+    networks: [default]
+    environment:
+      MTX_AUTHHTTPADDRESS: http://web:8080/api/exports/auth
+      MTX_RTSPADDRESS: :8554
+    ports:
+      - "${RTSP_LISTEN:-0.0.0.0}:${RTSP_PORT:-8554}:8554"
 networks:
   default: {}

@@ -53,10 +53,20 @@ def native_command(root, python, port):
     return command
 
 
-def native_environment():
+def native_environment(root=None):
     env = dict(os.environ)
     env.pop("BRIDGE_ACCESS_TOKEN", None)
     env.pop("BRIDGE_ACCESS_TOKEN_FILE", None)
+    if root:
+        values = compose_config(root)["services"]["web"]["environment"]
+        for key in (
+            "BRIDGE_RTSP_INTERNAL_URL",
+            "BRIDGE_RTSP_PORT",
+            "BRIDGE_ONVIF_PORT",
+            "BRIDGE_ONVIF_LISTEN",
+        ):
+            if key in values:
+                env[key] = str(values[key])
     return env
 
 
@@ -81,7 +91,7 @@ def backend_ready(port, token):
     return False
 
 
-def compose_settings(root):
+def compose_config(root):
     result = subprocess.run(
         [
             "docker",
@@ -99,7 +109,11 @@ def compose_settings(root):
         capture_output=True,
         text=True,
     )
-    web = json.loads(result.stdout)["services"]["web"]
+    return json.loads(result.stdout)
+
+
+def compose_settings(root):
+    web = compose_config(root)["services"]["web"]
     return int(web["environment"]["BRIDGE_PORT"]), int(web["ports"][0]["published"])
 
 
@@ -133,7 +147,7 @@ def start(root):
                 stdout=log,
                 stderr=subprocess.STDOUT,
                 start_new_session=True,
-                env=native_environment(),
+                env=native_environment(root),
             )
         (root / ".runtime/bridge.pid").write_text(str(child.pid))
         for _ in range(60):
@@ -175,6 +189,7 @@ def start(root):
             "--build",
             "--wait",
             "web",
+            "mediamtx",
         ],
         cwd=root,
         check=True,

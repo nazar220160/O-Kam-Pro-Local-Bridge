@@ -528,6 +528,42 @@ get_status.cgi?</textarea
             data-panel="services"
             hidden
           >
+            <section class="box bridge-export" aria-labelledby="bridge-export-title">
+              <div class="eyebrow">ЭКСПОРТ ВИДЕО С КОМПЬЮТЕРА</div>
+              <h2 id="bridge-export-title">ONVIF / RTSP от моста</h2>
+              <p class="muted">Мост публикует подключённые линзы для VLC и NVR. Поддержка ONVIF / RTSP самой камерой не требуется. Сначала откройте её видео.</p>
+              <div class="settings-grid">
+                <div>
+                  <label class="checkbox-label"><input type="checkbox" id="bridge-export-rtsp" checked /> RTSP</label>
+                  <label class="checkbox-label"><input type="checkbox" id="bridge-export-onvif" checked /> ONVIF · требуется RTSP</label>
+                </div>
+                <div>
+                  <label for="bridge-export-host">Адрес моста для плеера · необязательно</label>
+                  <input id="bridge-export-host" placeholder="Автоматически · IP в локальной сети" maxlength="253" autocomplete="off" spellcheck="false" />
+                  <button id="bridge-export-use-host" class="text-button" type="button">Использовать домен этого сервера</button>
+                </div>
+              </div>
+              <p class="note">Укажите только IP или имя хоста без протокола, порта и пароля. Адрес должен быть доступен устройству, на котором работает плеер или NVR.</p>
+              <div class="control-actions">
+                <button id="bridge-export-enable" class="primary" type="button" disabled>Включить / применить</button>
+                <button id="bridge-export-disable" class="ghost" type="button" disabled>Выключить экспорт</button>
+                <button id="bridge-export-refresh" class="ghost" type="button" disabled>Обновить статус</button>
+                <button id="bridge-export-credentials" class="ghost" type="button" disabled>Показать данные входа моста</button>
+              </div>
+              <p id="bridge-export-status" class="muted" role="status">Выберите камеру.</p>
+              <div id="bridge-export-profiles" class="bridge-export-profiles"></div>
+              <div id="bridge-export-secret" class="bridge-export-secret" hidden>
+                <p class="note">Отдельные данные входа моста. Это не пароль камеры или аккаунта. Поля очищаются через 30 секунд.</p>
+                <label for="bridge-export-username">Логин моста</label>
+                <input id="bridge-export-username" readonly autocomplete="off" />
+                <button id="bridge-export-copy-username" class="text-button" type="button">Копировать логин</button>
+                <label for="bridge-export-password">Временный пароль моста</label>
+                <input id="bridge-export-password" type="password" readonly autocomplete="off" />
+                <button id="bridge-export-copy-password" class="text-button" type="button">Копировать пароль</button>
+                <button id="bridge-export-hide" class="ghost" type="button">Скрыть данные</button>
+              </div>
+              <p class="note">После закрытия вкладки экспорт продолжает работать. Выход из аккаунта или отключение камеры выключает его. После перезапуска сервера включите экспорт заново. ONVIF моста не сертифицирован; совместимость зависит от NVR. Управление PTZ через экспорт недоступно.</p>
+            </section>
             <section class="box service-intro">
               <div>
                 <div class="eyebrow">НАТИВНОЕ ПОДКЛЮЧЕНИЕ</div>
@@ -659,5 +695,6 @@ get_status.cgi?</textarea
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="/app.js"></script>
     <script src="/controls.js"></script>
+    <script src="/exports.js"></script>
   </body>
 </html>

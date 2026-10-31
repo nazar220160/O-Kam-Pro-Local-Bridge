@@ -420,7 +420,7 @@ class Camera:
             media.jpeg = frame
             media.hubs["jpeg"].publish(frame)
 
-    def frames(self, kind, lens=0):
+    def frames(self, kind, lens=0, cancel=None):
         with self.lock:
             media = self._media(lens)
             hub = media.hubs[kind]
@@ -437,8 +437,8 @@ class Camera:
                 self.thread.start()
         deadline = time.monotonic() + 45
         try:
-            while not self.stop_event.is_set():
-                data = s.get(5)
+            while not self.stop_event.is_set() and not (cancel and cancel.is_set()):
+                data = s.get(0.25 if cancel is not None else 5)
                 if data is None:
                     return
                 if data:

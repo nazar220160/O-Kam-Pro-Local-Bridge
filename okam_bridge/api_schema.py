@@ -293,6 +293,54 @@ def openapi():
         {"$ref": "#/components/schemas/ControlRequest"},
         description="Requires a connected viewable camera. Commands execute serially in its existing native session. state=confirmed means result=0; sent means transport delivery only; rejected carries firmware result. Queue timeouts never execute later. Commands can change persistent settings; call only intentionally. Action definitions and parameter ranges are in x-actions. Image ranges: brightness/contrast 0..255, orientation 0..3, night 0..2. plaintext_password configures documented ExUserSwitch external access; it does not prove ONVIF/RTSP services exist. Verify get_params + independent service probe afterwards.",
     )
+    operation(
+        "/api/cameras/{camera_id}/export",
+        "get",
+        "Get bridge-owned RTSP/ONVIF publication status",
+        description="Independent of native camera service settings. Status and URLs never include publication credentials. Requires a live MediaMTX service for availability.",
+    )
+    operation(
+        "/api/cameras/{camera_id}/export",
+        "post",
+        "Enable or disable bridge-owned publication",
+        body(
+            {
+                "enabled": {"type": "boolean"},
+                "rtsp": {"type": "boolean", "default": True},
+                "onvif": {"type": "boolean", "default": True},
+                "advertise_host": {
+                    "type": "string",
+                    "description": "Optional server LAN IP or DNS name for NVR access; inferred from camera route when omitted.",
+                },
+            },
+            ["enabled"],
+        ),
+        description="Requires connected camera. Publishes original H264 for observed lenses over RTSP/TCP; ONVIF is a read-only Device/Media subset. No native camera settings are changed. Active publication keeps the camera and owning in-memory account session alive; closing a browser tab does not stop it. Logout, explicit disconnect, disabling publication or server restart revokes it. Enabling extends the account cookie lifetime while publication is active. No ONVIF certification, PTZ, events or recording facade is claimed.",
+    )
+    operation(
+        "/api/cameras/{camera_id}/export/credentials",
+        "post",
+        "Reveal separate publication credentials",
+        body({}),
+        body({"username": {"const": "bridge"}, "password": string}),
+        description="Explicit sensitive operation. These credentials only access the selected publication and differ from account, native-camera and temporary HTTP player credentials. URLs never embed passwords.",
+    )
+    operation(
+        "/api/exports/auth",
+        "post",
+        "MediaMTX authorization callback",
+        body(
+            {
+                "user": string,
+                "password": string,
+                "path": string,
+                "protocol": {"const": "rtsp"},
+                "action": {"enum": ["read", "publish"]},
+            }
+        ),
+        public=True,
+        description="Server-to-server callback. No account cookie is used; the submitted per-publication or publisher credentials are verified against the exact enabled path and action. Returns 200 on authorization, 401 otherwise. Does not create or change publications.",
+    )
     for endpoint, mime in [
         ("snapshot.jpg", "image/jpeg"),
         ("mjpeg", "multipart/x-mixed-replace"),
@@ -396,5 +444,5 @@ curl -b session.cookies http://localhost:8080/api/cameras</pre><h2>Endpoints</h2
         + "".join(rows)
         + """<h2>Native control actions</h2><p>Send {"action":"ptz_step","args":{"direction":"left"}} to /api/cameras/{camera_id}/control. Firmware may reject actions; transport delivery does not imply successful execution.</p><pre>"""
         + actions
-        + """</pre><h2>Native ONVIF / RTSP</h2><p>plaintext_password configures the documented external-user credentials. Separate ONVIF/RTSP service switches are not verified. Refresh parameters and probe service ports; an open port is not protocol verification. Camera service passwords are different from bridge media credentials.</p><h2>Errors &amp; lifecycle</h2><p>400 invalid input or camera not streaming · 401 session required · 403 host/origin rejected · 404 unknown camera/route · 409 connection already in progress · 415 JSON required · 502 vendor service unavailable · 503 no video. POST JSON bodies are limited to 8192 bytes. Sessions expire after 12 hours; restart requires login again. Camera connections are demand-driven and reconnect after interruptions.</p></html>"""
+        + """</pre><h2>Native ONVIF / RTSP</h2><p>plaintext_password configures the documented external-user credentials. Separate ONVIF/RTSP service switches are not verified. Refresh parameters and probe service ports; an open port is not protocol verification. Camera service passwords are different from bridge media credentials.</p><h2>Bridge-owned ONVIF / RTSP</h2><p>Enable /api/cameras/{camera_id}/export to publish the existing camera session independently of native ONVIF/RTSP support. Separate credentials are revealed only through POST export/credentials. RTSP/TCP is served by MediaMTX; the ONVIF Device/Media facade exposes observed lens profiles and authenticated snapshots. PTZ, events and full ONVIF certification are not provided. Closing a tab keeps publication alive; logout or disconnect revokes it. Active publications extend the owning account session until disabled or server restart.</p><h2>Errors &amp; lifecycle</h2><p>400 invalid input or camera not streaming · 401 session required · 403 host/origin rejected · 404 unknown camera/route · 409 connection already in progress · 415 JSON required · 502 vendor service unavailable · 503 no video. POST JSON bodies are limited to 8192 bytes. Sessions expire after 12 hours unless held by an active publication; restart requires login again. Camera connections are demand-driven and reconnect after interruptions.</p></html>"""
     )

@@ -24,3 +24,12 @@ The updated macOS suite passed all 120 tests. All three frontend Node suites and
 - After enabling plaintext access, the account supplied both ordinary and encrypted credentials. The ordinary candidate was rejected by native authentication; decoding the account-issued security credential authenticated and produced a real H.264 frame.
 - The fixed native macOS API, accessed through the Docker dashboard proxy, reached streaming and returned valid JPEG snapshots for all three lenses. The diagnostic session was logged out; no persistent camera settings were changed.
 - Regressions cover encrypted credential precedence, matching explicit credential reveal, unchanged legacy plaintext-only behavior, native loopback/gateway isolation, stable runtime token, macOS Compose routing and inherited access-token environment isolation.
+
+
+## 0.7.0 bridge publications
+
+- Full Python suite: 140 tests passed on macOS and in the Linux arm64 runtime image (three Docker-CLI-dependent checks skipped in the image); four Node frontend suites passed. Added tests for publication isolation, credential reveal, role/path authentication, logout/disconnect revocation, session lifetime, enable-versus-disable races, publisher cancellation, listener restrictions, ONVIF SOAP authentication/replay protection, lens mapping and discovery.
+- Real camera through the existing macOS API and Docker dashboard/MediaMTX: three authenticated RTSP/TCP streams were inspected by FFprobe, each H.264 at 1920×1080. No transcoding was used. Unauthenticated RTSP was rejected.
+- Independent `onvif-zeep` client with UsernameToken PasswordDigest retrieved device capabilities, all three profiles and each RTSP stream URI. A snapshot fetched using HTTP Digest was a real JPEG.
+- Disabling publication revoked its MediaMTX credentials. The diagnostic account session was logged out afterwards. Native camera service settings were not changed.
+- ONVIF Device/Media is a limited read-only facade, not a certified ONVIF device. PTZ/events/recordings and arbitrary NVR compatibility are not claimed. Real multicast discovery was not verified across another LAN client.

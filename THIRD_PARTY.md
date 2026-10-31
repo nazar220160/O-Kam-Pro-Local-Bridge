@@ -16,6 +16,10 @@ These files are inherited and may carry local adaptations; they are not claimed 
 
 Command numbers and field meanings were cross-checked against the published [VSDK 1.0.0+1 API/source](https://pub.dev/packages/vsdk), [VStarcam CGI command list](https://shop.vstarcam.cn/docs/cgi-command-list/) and [VeeSky RTSP documentation](https://open.veesky.com/docs/open-rtsp/). No Dart SDK source or SDK binary is included. Published protocol documentation does not establish model compatibility or verify a running camera service.
 
+## MediaMTX
+
+Optional bridge RTSP publication uses [MediaMTX v1.21.2](https://github.com/bluenviron/mediamtx/tree/v1.21.2), maintained upstream by the MediaMTX project and distributed separately as `bluenviron/mediamtx:1.21.2`. It is MIT licensed; see its [upstream license](https://github.com/bluenviron/mediamtx/blob/v1.21.2/LICENSE). MediaMTX source or binaries are not bundled in `okam_bridge/vendor/`; Compose retrieves the separate container image. Its copyright and license remain applicable.
+
 ## Runtime dependencies
 
 The project uses Python, the `cryptography` package, FFmpeg and nginx. Their respective licenses and distribution terms remain applicable; the project's MIT license does not replace them. Container base images and operating-system packages also retain their own licenses.

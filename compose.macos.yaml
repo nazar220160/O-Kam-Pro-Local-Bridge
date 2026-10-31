@@ -14,7 +14,22 @@ services:
       WEB_LISTEN: "0.0.0.0"
       WEB_PORT: "8080"
       BRIDGE_HOST: host.docker.internal
+      BRIDGE_RTSP_INTERNAL_URL: "rtsp://127.0.0.1:${RTSP_PORT:-8554}"
+      BRIDGE_RTSP_PORT: "${RTSP_PORT:-8554}"
+      BRIDGE_ONVIF_PORT: "${ONVIF_PORT:-8899}"
+      BRIDGE_ONVIF_LISTEN: "${ONVIF_LISTEN:-0.0.0.0}"
     volumes: !override
       - ./.runtime/gateway-token:/run/bridge/gateway-token:ro
+  mediamtx:
+    network_mode: !reset null
+    networks: [default]
+    environment:
+      MTX_AUTHHTTPADDRESS: http://web:8080/api/exports/auth
+      MTX_RTSPADDRESS: :8554
+    ports:
+      - "${RTSP_LISTEN:-0.0.0.0}:${RTSP_PORT:-8554}:8554"
+    depends_on: !override
+      web:
+        condition: service_started
 networks:
   default: {}

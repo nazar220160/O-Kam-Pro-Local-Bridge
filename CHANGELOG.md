@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0
+
+- Add optional bridge-owned RTSP/TCP publication through the separate MediaMTX 1.21.2 service, copying H.264 without encoding.
+- Add a read-only ONVIF Device/Media facade, authenticated snapshots and best-effort WS-Discovery, with profiles for observed lenses. No PTZ, events, recording facade or ONVIF certification is claimed.
+- Add explicit publication credentials and exact-path MediaMTX read/publish authorization.
+- Keep enabled publications running when the browser tab closes; revoke on logout, camera disconnect, disable or API restart. Publication state remains in RAM.
+- Include MediaMTX in the Linux Compose deployment and native macOS launcher; retain the native macOS camera-UDP transport fix.
+- Preserve existing native camera ONVIF/RTSP controls unchanged; bridge publication does not enable camera daemons.
+
+
 ## 0.6.1
 
 - Fix native password selection when the account returns both plaintext external-access credentials and encrypted dual-auth credentials. Native video uses the encrypted credential and current account authorization; explicit credential reveal follows the same selection.
