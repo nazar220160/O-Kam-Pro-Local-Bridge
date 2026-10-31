@@ -2,7 +2,7 @@
 
 **Your cameras. Your network. Your API.**
 
-[![Version 0.8.1](https://img.shields.io/badge/version-0.8.1-95d75d)](CHANGELOG.md)
+[![Version 0.8.2](https://img.shields.io/badge/version-0.8.2-95d75d)](CHANGELOG.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![API reference](https://img.shields.io/badge/API-OpenAPI_3.1-527ac9)](docs/api.md)
 

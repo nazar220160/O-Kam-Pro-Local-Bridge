@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.2
+
+- Support the standard `/onvif/device_service` entry point used by Frigate and other host/port clients. Select each publication by authenticated credentials while keeping subsequent service URLs scoped to that camera.
+- Verify bootstrap, profiles, stream URIs and PTZ queries using Frigate's onvif-zeep-async 4.3 client; add multi-publication authentication and revocation regressions.
+
 ## 0.8.1
 
 - Show publication username/password automatically as selectable plaintext fields; remove reveal/hide buttons and the hiding timer. Clear fields when changing account/camera or disabling publication.

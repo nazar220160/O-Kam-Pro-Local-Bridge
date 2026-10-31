@@ -33,7 +33,19 @@ For an ONVIF NVR, try discovery on the same LAN. If the device is not found, add
 http://BRIDGE_HOST:8899/onvif/EXPORT_ID/device_service
 ```
 
-Provide the same publication credentials in separate fields. An NVR that only accepts a host and port must also support the publication-specific device-service path; otherwise use its generic RTSP input. Select the observed-lens profile you need. A discovery result does not guarantee the NVR implements this limited facade. Authenticated snapshots are returned through the facade's snapshot URI; they do not use your browser cookie.
+Provide the same publication credentials in separate fields. Host/port-only clients can use the standard `/onvif/device_service` entry point. Their publication credentials select the camera, and returned service URLs retain the publication-specific path. Select the observed-lens profile you need. A discovery result does not guarantee the NVR implements this limited facade. Authenticated snapshots are returned through the facade's snapshot URI; they do not use your browser cookie.
+
+## Frigate Add Camera wizard
+
+Enable the camera's bridge ONVIF/RTSP export first, then enter:
+
+- Host/IP: the bridge server IP or DNS name only, without `http://`, port or path.
+- ONVIF port: `8899` by default (use your configured port).
+- Username: `bridge`.
+- Password: the password shown for this camera's bridge publication.
+- Stream discovery: **Probe camera**. HTTP digest can remain off; WS-Security PasswordDigest is supported. HTTP digest is also accepted.
+
+The standard device path selects a publication by its credentials, so different cameras can share the same bridge IP and ONVIF port. Pick the desired lens/profile from the returned streams. Frigate's automatic tracking requires movement features beyond this bridge's continuous pan/tilt; leave autotracking disabled. This integration check covers the ONVIF client/probe sequence, not a full Frigate installation and inference pipeline. If HTTP ONVIF succeeds but RTSP fails, check TCP 8554 reachability and whether another service already uses that host port.
 
 ## Ports and networking
 

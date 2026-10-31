@@ -1,4 +1,4 @@
-# HTTP API · v0.8.1
+# HTTP API · v0.8.2
 
 The Python API is independent of the dashboard. With Compose, use `http://localhost:8080` for both the dashboard and proxied API. For a native process started with `python -m okam_bridge api --port 8098`, use `http://localhost:8098`.
 

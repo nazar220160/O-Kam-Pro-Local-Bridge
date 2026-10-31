@@ -55,3 +55,11 @@ These are partial ONVIF services, not certified Profiles S/T/G. No claim is made
 - Built-in decoding matched the former client-file decoder for two authorized cached account records. A fresh account login and physical-camera connection using LANBackend without a client-file argument authenticated and received a real video frame. No native settings were changed.
 - An isolated source copy containing no `.env` or official executable built and reached healthy API/web states with fresh Docker volumes. The Docker Desktop networking override and separate test ports were used to avoid disrupting the existing deployment. Inside that container, the built-in decoder passed a synthetic known-answer vector while the external client path was absent. The temporary test stack/volumes were removed. Linux host-network Compose defaults are validated separately; this check does not claim physical camera UDP works through Docker Desktop.
 - Regression coverage includes known-answer decoding with filesystem access forbidden, a stale/missing legacy override, invalid input rejection, no client-file mount in clean Compose, LAN dashboard defaults and explicit loopback restrictions. Actual user credentials and proprietary executables remain outside Git; the fixed interoperability salt is deliberately included in source.
+
+
+## 0.8.2 host/port ONVIF bootstrap
+
+- Full macOS suite: 223 tests passed; all five frontend suites and OpenAPI validation passed. Docker image rebuild was not performed because the local Docker daemon was unavailable; no new container verification is claimed for this release.
+
+- Frigate's upstream client dependency (`onvif-zeep-async` 4.3.0) was run against the bridge with two controlled publications on one listener. Host/port bootstrap, authenticated camera selection, device information, profiles, RTSP URIs, PTZ capabilities/nodes/presets and configuration options passed for both publications. No physical movement was sent. This is a client interoperability check, not a full Frigate deployment test.
+- Independent synchronous Zeep clients exercised WS-Security PasswordDigest and HTTP Digest against the standard entry point. Regression checks cover incorrect credentials, revoked publications, camera isolation and clock bootstrap without camera metadata disclosure. Existing publication-specific URLs are preserved.

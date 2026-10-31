@@ -294,8 +294,11 @@ class _Handler(BaseHTTPRequestHandler):
         self.send(200, data, "image/jpeg")
 
     def do_POST(self):
-        item, service, _ = self.target()
-        if item is None:
+        item, service, parts = self.target()
+        standard_entrypoint = parts.path == "/onvif/device_service"
+        if standard_entrypoint:
+            service = "device_service"
+        if item is None and not standard_entrypoint:
             self.fault("Unknown export", 404)
             return
         if self.headers.get("Transfer-Encoding"):
@@ -347,9 +350,27 @@ class _Handler(BaseHTTPRequestHandler):
         except (ET.ParseError, ValueError):
             self.fault("Invalid XML")
             return
-        if not (
-            service == "device_service" and action == "GetSystemDateAndTime"
-        ) and not self.authorized(item, root):
+        clock_request = service == "device_service" and action == "GetSystemDateAndTime"
+        if standard_entrypoint:
+            # Host/port-only clients bootstrap at this standard path. The
+            # publication password selects the camera; never pick the first
+            # account's camera or expose its metadata without authentication.
+            item = (
+                {}
+                if clock_request
+                else next(
+                    (
+                        candidate
+                        for candidate in self.server.registry.list_exports()
+                        if self.authorized(candidate, root)
+                    ),
+                    None,
+                )
+            )
+            if item is None:
+                self.fault("Authentication required", 401, True)
+                return
+        elif not clock_request and not self.authorized(item, root):
             self.fault("Authentication required", 401, True)
             return
         try:
