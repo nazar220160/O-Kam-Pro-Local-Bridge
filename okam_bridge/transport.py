@@ -244,6 +244,23 @@ def start_video(
         raise CameraStartError("video_start_rejected:" + str(response[1]))
 
 
+def start_audio(session, user, password, compatibility_password=None, account_id=None):
+    """Receive live G.711 A-law audio (VSDK stream 7), without microphone writes."""
+    write_command(
+        session,
+        make_request(
+            "audiostream.cgi?streamid=7&",
+            user,
+            password,
+            compatibility_password,
+            account_id=account_id,
+        ),
+    )
+    response = read_reply(session, (0x6031,), timeout=3)
+    if response is None or response[1] != 0:
+        raise CS2Error("camera_audio_unavailable")
+
+
 def read_lens_frame(session, timeout=10):
     from .vendor.cs2 import MAX_FRAME_BYTES
 

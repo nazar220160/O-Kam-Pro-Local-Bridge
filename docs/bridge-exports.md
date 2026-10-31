@@ -2,7 +2,7 @@
 
 Bridge publication lets a VLC or NVR client consume an already connected camera even when the camera has no usable native RTSP/ONVIF service. It does not change native camera settings.
 
-RTSP runs through separate MediaMTX 1.21.2 over TCP, normally on port 8554. FFmpeg copies H.264 without encoding; audio is not published. The optional bridge ONVIF facade exposes Device/Media operations, per-observed-lens profiles, authenticated JPEG snapshots, bounded PTZ, PullPoint events and completed-clip Recording/Search/Replay services, normally on port 8899. WS-Discovery is best effort when LAN multicast works.
+RTSP runs through separate MediaMTX 1.21.2 over TCP, normally on port 8554. FFmpeg copies H.264 without encoding. When native G.711 A-law microphone packets are actually received, a separate bounded pipe carries them to FFmpeg and AAC audio is included in each lens RTSP stream. All lenses share the camera microphone. Unsupported or unavailable native audio leaves the stream video-only. The optional bridge ONVIF facade exposes Device/Media operations, per-observed-lens profiles, authenticated JPEG snapshots, bounded PTZ, PullPoint events and completed-clip Recording/Search/Replay services, normally on port 8899. WS-Discovery is best effort when LAN multicast works.
 
 Camera encoder configuration writes, absolute/relative PTZ positioning, ONVIF recording-job creation, reverse playback and RTSP clock seeking are unsupported. Full ONVIF certification is not claimed. Compatibility depends on the client; profiles describe observed lenses rather than independently configurable high/low encoders. Some metadata has fallback values until the camera reports it. Do not treat successful enablement as proof of VLC/NVR compatibility.
 
@@ -46,6 +46,8 @@ Enable the camera's bridge ONVIF/RTSP export first, then enter:
 - Stream discovery: **Probe camera**. HTTP digest can remain off; WS-Security PasswordDigest is supported. HTTP digest is also accepted.
 
 The standard device path selects a publication by its credentials, so different cameras can share the same bridge IP and ONVIF port. Pick the desired lens/profile from the returned streams. Frigate's automatic tracking requires movement features beyond this bridge's continuous pan/tilt; leave autotracking disabled. This integration check covers the ONVIF client/probe sequence, not a full Frigate installation and inference pipeline. If HTTP ONVIF succeeds but RTSP fails, check TCP 8554 reachability and whether another service already uses that host port.
+
+For recurring wizard timeouts, the optional [Frigate probe adapter](../integrations/frigate/README.md) changes only RTSP metadata/snapshot checks to use TCP directly with bounded analysis. It does not change runtime detection/recording settings. The adapter must be built for your exact Frigate image; upstream source layout changes cause an explicit build failure.
 
 ## Ports and networking
 
@@ -95,3 +97,6 @@ ONVIF Recording/Search enumerates completed server recordings and imported SD ca
 Recordings persist across logout/restart, scoped by account and camera; publication credentials, recording workers, subscriptions and replay processes do not. Sign in again to access retained files, reconnect and re-enable publication for ONVIF replay. Recording does not automatically resume after restart. Age retention applies to server recordings; imported SD clips keep their original timestamps and are not deleted merely because the source is old. Both sources share the camera quota, evicted oldest first when a new file is added. Limits are enforced at completion/import, so active segments/imports need additional free disk space. SD import requires at least 2 GiB free, with at most two active imports globally. These are per-camera limits, not a global disk reservation.
 
 Linux Compose stores the private SQLite manifest and clips in the `recordings` named volume. The native macOS default is `.runtime/recordings`; override with `BRIDGE_RECORDINGS_DIR`. Back up/protect this directory as private footage. `docker compose down -v` deletes named-volume recordings. Explicit logout/off/disconnect stops active recording and replay but preserves completed files.
+
+
+Live AAC audio is currently an RTSP publication feature. Browser MJPEG/H.264 endpoints, bridge server recordings, SD imports and archive replay remain video-only. Do not assign Frigate's audio role to an input unless its probe actually reports an audio track. Audio starts through the ephemeral native listening command; camera microphone/recording configuration is not changed.

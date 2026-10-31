@@ -2,7 +2,7 @@
 
 **Your cameras. Your network. Your API.**
 
-[![Version 0.8.2](https://img.shields.io/badge/version-0.8.2-95d75d)](CHANGELOG.md)
+[![Version 0.9.0](https://img.shields.io/badge/version-0.9.0-95d75d)](CHANGELOG.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![API reference](https://img.shields.io/badge/API-OpenAPI_3.1-527ac9)](docs/api.md)
 
@@ -25,7 +25,7 @@ A self-hosted dashboard and HTTP API for compatible O-Kam Pro cameras using the 
 
 **Compatibility matters:** this bridge supports the CS2/PPPP transport family, not every camera sold under the O-Kam name. Cameras must be reachable on your LAN or a routed private network. Account login and transport bootstrap contact vendor services; this is not a cloud relay or WAN video transport.
 
-Audio streaming, two-way talk and VP transport are not implemented. Bridge publication copies H.264 without encoding through the separate MediaMTX service (TCP 8554 by default); the optional ONVIF endpoint uses port 8899 and authenticated snapshots. WS-Discovery works only where multicast is reachable. ONVIF supports bounded continuous pan/tilt, native presets, observed status events, recording search and forward clip replay. Absolute PTZ positions, reverse playback and RTSP clock seeking are unsupported; ONVIF certification is not claimed. [Set up bridge exports](docs/bridge-exports.md).
+Compatible G.711 A-law camera audio is received and published as AAC alongside live RTSP video. Two-way talk and VP transport are not implemented. Bridge publication copies H.264 without encoding through the separate MediaMTX service (TCP 8554 by default); the optional ONVIF endpoint uses port 8899 and authenticated snapshots. WS-Discovery works only where multicast is reachable. ONVIF supports bounded continuous pan/tilt, native presets, observed status events, recording search and forward clip replay. Absolute PTZ positions, reverse playback and RTSP clock seeking are unsupported; ONVIF certification is not claimed. [Set up bridge exports](docs/bridge-exports.md).
 
 Native camera capability flags do not prove that an RTSP or ONVIF daemon is running. Independent native service toggles remain unverified and disabled; bridge publication does not change the camera’s native ONVIF/RTSP settings.
 

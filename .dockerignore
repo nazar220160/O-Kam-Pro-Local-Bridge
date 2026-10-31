@@ -9,3 +9,6 @@
 **/*.pyc
 **/*.exe
 **/*.private.*
+!integrations/
+!integrations/frigate/
+!integrations/frigate/patch_probes.py

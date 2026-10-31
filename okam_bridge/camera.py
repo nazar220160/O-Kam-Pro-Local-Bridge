@@ -23,6 +23,7 @@ from .transport import (
     authorize_account,
     set_video_quality,
     start_video,
+    start_audio,
     CameraAuthError,
     CameraStartError,
     make_request,
@@ -272,6 +273,9 @@ class Camera:
         self.connections = 0
         self.metadata = {}
         self.details = {}
+        self.audio_hub = Fanout(64)
+        self.audio_available = False
+        self.audio_frames = 0
         self.control_queue = queue.Queue(8)
         self.control_idle = threading.Event()
         self.control_idle.set()
@@ -361,7 +365,9 @@ class Camera:
             return self.lenses[lens]
 
     def _viewers(self):
-        return sum(h.count for m in self.lenses.values() for h in m.hubs.values())
+        return self.audio_hub.count + sum(
+            h.count for m in self.lenses.values() for h in m.hubs.values()
+        )
 
     def status(self):
         with self.lock:
@@ -373,6 +379,12 @@ class Camera:
                 "last_frame": self.last_frame,
                 "connections": self.connections,
                 "metadata": dict(self.metadata),
+                "audio": {
+                    "available": self.audio_available,
+                    "codec": "pcm_alaw" if self.audio_available else None,
+                    "sample_rate": 8000 if self.audio_available else None,
+                    "frames_received": self.audio_frames,
+                },
                 "lens_metadata": [
                     self._lens_status(n) for n in sorted(self.observed_lenses)
                 ],
@@ -423,7 +435,7 @@ class Camera:
     def frames(self, kind, lens=0, cancel=None):
         with self.lock:
             media = self._media(lens)
-            hub = media.hubs[kind]
+            hub = self.audio_hub if kind == "audio" else media.hubs[kind]
             s = hub.subscribe()
             if kind == "jpeg" and media.jpeg and self.state == "streaming":
                 s.queue.put_nowait(media.jpeg)
@@ -506,6 +518,19 @@ class Camera:
                     self.config.get("compatibility_password"),
                     account_id=self.config.get("account_id"),
                 )
+                if self.metadata.get("audio_g711") and self.metadata.get(
+                    "microphone", True
+                ):
+                    try:
+                        start_audio(
+                            session,
+                            user,
+                            password,
+                            self.config.get("compatibility_password"),
+                            self.config.get("account_id"),
+                        )
+                    except (CS2Error, OSError):
+                        pass  # Audio rejection must not prevent video.
                 if self.config.get("quality") is not None:
                     set_video_quality(session, self.config, self.config["quality"])
                 with self.lock:
@@ -517,6 +542,12 @@ class Camera:
                     if self.stop_event.is_set():
                         break
                     data, frame_type, lens = read_lens_frame(session, timeout=10)
+                    if frame_type == 12:
+                        with self.lock:
+                            self.audio_available = True
+                            self.audio_frames += 1
+                            self.audio_hub.publish(data)
+                        continue
                     if not re.search(rb"\x00\x00(?:\x00)?\x01[\x01-\x7f]", data):
                         continue
                     with self.lock:
@@ -593,6 +624,7 @@ class Camera:
                 if session:
                     session.close()
                 self.session = None
+                self.audio_available = False
                 self._clear_decoders()
                 with self.lock:
                     self.state = (
@@ -614,6 +646,7 @@ class Camera:
 
     def stop(self):
         self.stop_event.set()
+        self.audio_hub.close()
         self._cancel_controls()
         self.control_idle.wait(2)
         with self.lock:

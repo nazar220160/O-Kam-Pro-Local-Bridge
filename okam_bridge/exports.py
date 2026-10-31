@@ -20,8 +20,8 @@ class ExportError(ValueError):
     pass
 
 
-def publisher_command(ffmpeg, url, fps=10):
-    return [
+def publisher_command(ffmpeg, url, fps=10, audio_fd=None):
+    command = [
         ffmpeg,
         "-hide_banner",
         "-loglevel",
@@ -29,25 +29,62 @@ def publisher_command(ffmpeg, url, fps=10):
         "-nostdin",
         "-fflags",
         "+genpts",
+        "-thread_queue_size",
+        "512",
         "-probesize",
         "100000",
         "-analyzeduration",
-        "1000000",
+        "500000",
         "-f",
         "h264",
         "-r",
         str(fps),
         "-i",
         "pipe:0",
-        "-an",
+    ]
+    if audio_fd is not None:
+        command += [
+            "-thread_queue_size",
+            "512",
+            "-f",
+            "alaw",
+            "-ar",
+            "8000",
+            "-ac",
+            "1",
+            "-i",
+            f"pipe:{audio_fd}",
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-c:a",
+            "aac",
+            "-ar",
+            "16000",
+            "-b:a",
+            "32k",
+            "-af",
+            "aresample=async=1:first_pts=0",
+        ]
+    else:
+        command += ["-an"]
+    command += [
         "-c:v",
         "copy",
+        "-bsf:v",
+        f"setts=ts=N/({fps}*TB)",
+        "-flush_packets",
+        "1",
         "-f",
         "rtsp",
         "-rtsp_transport",
         "tcp",
+        "-muxdelay",
+        "0.1",
         url,
     ]
+    return command
 
 
 class Publisher:
@@ -62,31 +99,56 @@ class Publisher:
         self.lock = threading.Lock()
         self.written = 0
         self.error = None
+        self.audio = False
 
     def start(self):
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
 
-    def _write(self, process, data):
+    def _write(self, process, data, fd=None, cancel=None):
+        fd = process.stdin.fileno() if fd is None else fd
         remaining = memoryview(data)
         end = time.monotonic() + 5
-        while remaining and not self.stop_event.is_set():
+        while (
+            remaining
+            and not self.stop_event.is_set()
+            and not (cancel and cancel.is_set())
+        ):
             if process.poll() is not None or time.monotonic() > end:
                 raise BrokenPipeError
-            if not select.select([], [process.stdin], [], 0.25)[1]:
+            if not select.select([], [fd], [], 0.25)[1]:
                 continue
             try:
-                n = os.write(process.stdin.fileno(), remaining)
+                n = os.write(fd, remaining)
             except BlockingIOError:
                 continue
             remaining = remaining[n:]
         if self.stop_event.is_set():
             raise BrokenPipeError
 
+    def _feed_audio(self, process, fd, cancel):
+        frames = None
+        try:
+            os.set_blocking(fd, False)
+            frames = self.camera.frames("audio", cancel=cancel)
+            for data in frames:
+                self._write(process, data, fd=fd, cancel=cancel)
+                if cancel.is_set() or self.stop_event.is_set():
+                    break
+        except (OSError, ValueError, RuntimeError):
+            pass
+        finally:
+            if frames:
+                frames.close()
+            os.close(fd)
+
     def _run(self):
         while not self.stop_event.is_set():
             process = None
             frames = None
+            audio_thread = None
+            audio_read = audio_write = None
+            cycle_cancel = threading.Event()
             try:
                 metadata = next(
                     (
@@ -100,8 +162,14 @@ class Publisher:
                 fps = max(1, min(60, int(fps)))
                 env = dict(os.environ)
                 env.pop("FFREPORT", None)
+                self.audio = bool(
+                    self.camera.status().get("audio", {}).get("available")
+                )
+                if self.audio:
+                    audio_read, audio_write = os.pipe()
                 process = subprocess.Popen(
-                    publisher_command(self.ffmpeg, self.url, fps),
+                    publisher_command(self.ffmpeg, self.url, fps, audio_read),
+                    pass_fds=(audio_read,) if audio_read is not None else (),
                     stdin=subprocess.PIPE,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -112,6 +180,16 @@ class Publisher:
                     self.process = process
                     if self.stop_event.is_set():
                         process.terminate()
+                if audio_read is not None:
+                    os.close(audio_read)
+                    audio_read = None
+                    audio_thread = threading.Thread(
+                        target=self._feed_audio,
+                        args=(process, audio_write, cycle_cancel),
+                        daemon=True,
+                    )
+                    audio_thread.start()
+                    audio_write = None  # The feeder now owns and closes it.
                 os.set_blocking(process.stdin.fileno(), False)
                 frames = self.camera.frames(
                     "h264", lens=self.lens, cancel=self.stop_event
@@ -119,12 +197,17 @@ class Publisher:
                 for frame in frames:
                     if self.stop_event.is_set():
                         break
+                    if self.audio != bool(
+                        self.camera.status().get("audio", {}).get("available")
+                    ):
+                        raise RuntimeError("audio_layout_changed")
                     self._write(process, frame)
                     self.written += 1
                     self.error = None
             except (OSError, ValueError, RuntimeError):
                 self.error = "rtsp_publisher_unavailable"
             finally:
+                cycle_cancel.set()
                 if frames:
                     frames.close()
                 if process:
@@ -137,6 +220,11 @@ class Publisher:
                         process.wait(timeout=2)
                     if process.stdin:
                         process.stdin.close()
+                if audio_thread:
+                    audio_thread.join(timeout=6)
+                for fd in (audio_read, audio_write):
+                    if fd is not None:
+                        os.close(fd)
                 with self.lock:
                     self.process = None
             if not self.stop_event.is_set():
@@ -430,6 +518,7 @@ class ExportManager:
             "rtsp": True,
             "onvif": entry.onvif,
             "ptz": bool(status.get("metadata", {}).get("motor")),
+            "audio": dict(status.get("audio", {})),
             "events": bool(entry.onvif),
             "recording": bool(entry.onvif),
             "state": (
