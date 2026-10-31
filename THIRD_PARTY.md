@@ -23,3 +23,22 @@ Optional bridge RTSP publication uses [MediaMTX v1.21.2](https://github.com/blue
 ## Runtime dependencies
 
 The project uses Python, the `cryptography` package, FFmpeg and nginx. Their respective licenses and distribution terms remain applicable; the project's MIT license does not replace them. Container base images and operating-system packages also retain their own licenses.
+
+## Web dashboard
+
+The dashboard also uses [tw-animate-css](https://github.com/Wombosvideo/tw-animate-css) under its [preserved MIT notice](web/public/licenses/tw-animate-css-MIT.txt).
+
+The dashboard uses the packages pinned in [web/package-lock.json](web/package-lock.json). The following upstream notices are preserved in [web/public/licenses](web/public/licenses), which is copied into the static export and served under `/licenses/`:
+
+| Package | License and preserved notice |
+| --- | --- |
+| [Next.js](https://github.com/vercel/next.js), [React / React DOM](https://github.com/react/react) | MIT: [Next.js](web/public/licenses/Nextjs-MIT.txt), [React](web/public/licenses/React-MIT.txt), [React DOM](web/public/licenses/ReactDOM-MIT.txt) |
+| [TanStack Query](https://github.com/TanStack/query), [Axios](https://github.com/axios/axios) | MIT: [TanStack Query](web/public/licenses/TanStackQuery-MIT.txt), [Axios](web/public/licenses/Axios-MIT.txt) |
+| [Radix UI](https://github.com/radix-ui/primitives), [Sonner](https://github.com/emilkowalski/sonner) | MIT: [Radix UI](web/public/licenses/RadixUI-MIT.txt), [Sonner](web/public/licenses/Sonner-MIT.txt) |
+| [Lucide](https://github.com/lucide-icons/lucide) | [ISC, with the included Feather-derived icon MIT notice](web/public/licenses/Lucide-ISC-and-Feather-MIT.txt) |
+| [class-variance-authority](https://github.com/joe-bell/cva) | [Apache-2.0](web/public/licenses/CVA-Apache-2.0.txt) |
+| [clsx](https://github.com/lukeed/clsx), [cn](https://github.com/shadcn-ui/cn), [tailwind-merge](https://github.com/dcastil/tailwind-merge), [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) | MIT: [clsx](web/public/licenses/clsx-MIT.txt), [cn](web/public/licenses/cn-MIT.txt), [tailwind-merge](web/public/licenses/tailwind-merge-MIT.txt), [Tailwind CSS](web/public/licenses/TailwindCSS-MIT.txt) |
+
+The components in `web/src/components/ui/` were installed from the official [shadcn/ui registry](https://github.com/shadcn-ui/ui) and may contain project adaptations. Their upstream MIT notice, copyright 2023 shadcn, is retained in [web/src/components/ui/LICENSE](web/src/components/ui/LICENSE) and the [distributed copy](web/public/licenses/shadcn-ui-MIT.txt).
+
+Inter and Manrope are bundled locally through `@fontsource-variable/inter` and `@fontsource-variable/manrope`; the dashboard does not request them from a font CDN. Their package-provided SIL Open Font License 1.1 texts and copyright notices are preserved for [Inter](web/public/licenses/Inter-OFL-1.1.txt) and [Manrope](web/public/licenses/Manrope-OFL-1.1.txt). Font upstreams are [rsms/inter](https://github.com/rsms/inter) and [sharanda/manrope](https://github.com/sharanda/manrope). These font licenses remain separate from the project's MIT license.

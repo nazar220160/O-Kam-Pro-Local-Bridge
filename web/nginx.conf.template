@@ -12,6 +12,14 @@ http {
   uwsgi_temp_path /tmp/uwsgi_temp;
   scgi_temp_path /tmp/scgi_temp;
   client_max_body_size 8k;
+  gzip on;
+  gzip_vary on;
+  gzip_min_length 1024;
+  gzip_types text/css application/javascript;
+  map $uri $web_cache_control {
+    default "no-cache";
+    ~^/_next/static/ "public, max-age=31536000, immutable";
+  }
   server {
     listen ${WEB_LISTEN}:${WEB_PORT};
     server_name _;
@@ -19,7 +27,8 @@ http {
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy no-referrer always;
     add_header X-Frame-Options DENY always;
-    add_header Content-Security-Policy "default-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+    add_header Cache-Control $web_cache_control always;
+    add_header Content-Security-Policy "default-src 'self'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self' ${NEXT_CSP_HASHES}; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
     location ~ ^/(api/|health$|openapi.json$|docs/?$) {
       proxy_pass http://${BRIDGE_HOST}:${BRIDGE_PORT};
       proxy_http_version 1.1;
@@ -33,6 +42,11 @@ http {
       proxy_read_timeout 1h;
       proxy_send_timeout 1h;
     }
-    location / { try_files $uri $uri/ =404; }
+    location /_next/static/ {
+      try_files $uri =404;
+    }
+    location / {
+      try_files $uri $uri.html $uri/ =404;
+    }
   }
 }

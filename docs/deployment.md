@@ -17,10 +17,12 @@ Compose builds the bridge and dashboard and starts four services:
 | --- | --- |
 | `init` | Creates a random private gateway token in the shared named volume; exits after initialization. |
 | `bridge` | Python API, bound to `127.0.0.1:8098` by default. |
-| `web` | Static dashboard and same-origin nginx API proxy, bound to `0.0.0.0:8080` by default. |
+| `web` | Compiled Next.js dashboard and same-origin nginx API proxy, bound to `0.0.0.0:8080` by default. |
 | `mediamtx` | Separate upstream MediaMTX 1.21.2 container for optional RTSP/TCP publication, listening on `0.0.0.0:8554` by default. |
 
 The web service starts after the API health check passes. `/health` reports API liveness; it does not test camera availability or vendor connectivity. The gateway token is supplied privately by nginx, never configured in browser JavaScript.
+
+The web image uses a Node.js 22 build stage with `npm ci` and the committed lockfile. Next.js exports static HTML, JavaScript and CSS; the final runtime remains nginx. No Node.js installation or separate frontend process is required on the Docker host. The build generates CSP hashes for Next.js inline scripts. Fingerprinted frontend assets are cached; HTML is revalidated when the panel is reopened.
 
 Optional `.env` settings:
 
@@ -102,7 +104,23 @@ docker run --rm --network host \
   okam-local-web
 ```
 
-This frontend configuration expects the API on host loopback. Docker Desktop networking may not provide that path; adapt the nginx upstream for your environment or serve the frontend through a local nginx installation. Keep the browser and API behind one origin; simply opening `web/index.html` as a file is not a supported deployment.
+This frontend configuration expects the API on host loopback. Docker Desktop networking may not provide that path; adapt the nginx upstream for your environment or use the macOS launcher. The dashboard is compiled from `web/src/`; opening source files or the exported HTML directly as local files is not a supported deployment. Keep the browser and API behind one origin.
+
+## Frontend development
+
+Use Node.js 22+ and a running bridge/nginx gateway. From the repository root:
+
+```sh
+cd web
+npm ci
+BRIDGE_DEV_URL=http://127.0.0.1:8080 npm run dev
+```
+
+Open `http://localhost:3000`. The local development proxy starts Next.js on its internal development port and forwards API, health, documentation and video requests to `BRIDGE_DEV_URL`. It keeps the browser on one origin and adapts upstream Host/Origin headers for the existing authenticated gateway. Use the gateway URL on port 8080 by default; pointing directly to the protected Python API does not provide gateway authentication. The private gateway token stays in the existing nginx service.
+
+The proxy binds to `127.0.0.1:3000` by default; Next.js listens internally on `127.0.0.1:3001`. Use `DEV_PORT` and `NEXT_DEV_PORT` to change these ports, or `DEV_HOST` to choose a different proxy bind address. Browser origins are checked before upstream headers are normalized. Stopping the development command closes its preview streams and Next.js child process.
+
+Run `npm run typecheck`, `npm run lint`, `npm test`, `node --test scripts/csp-check.mjs`, `node --test scripts/dev-check.mjs` and `npm run build` before submitting frontend changes. The production export goes to `web/out/` and is generated automatically during `docker compose up -d --build`. Existing account sessions and camera/publication state live in the Python service's persistent volume, so rebuilding the dashboard does not require reconfiguring cameras or Frigate.
 
 ## Bridge publication listeners
 

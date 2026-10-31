@@ -10,3 +10,10 @@ secrets/*
 .DS_Store
 
 .runtime/
+
+web/node_modules/
+web/.next/
+web/out/
+web/coverage/
+web/*.tsbuildinfo
+web/next-env.d.ts

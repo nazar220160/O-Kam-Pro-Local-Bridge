@@ -1,0 +1,132 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@custom-variant dark (&:is(.dark *));
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    "Manrope Variable", "Inter Variable", ui-sans-serif, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--ring);
+  --radius-sm: 0.4rem;
+  --radius-md: 0.55rem;
+  --radius-lg: 0.8rem;
+  --radius-xl: 1rem;
+}
+:root {
+  color-scheme: dark;
+  --background: #0b1014;
+  --foreground: #eaf0f3;
+  --card: #11181f;
+  --popover: #172129;
+  --primary: #bef278;
+  --primary-foreground: #19270e;
+  --secondary: #202c35;
+  --muted: #162029;
+  --muted-foreground: #8797a6;
+  --accent: #202c35;
+  --destructive: #f78a8a;
+  --border: #25313b;
+  --ring: #9ed559;
+  --radius: 0.7rem;
+}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    margin: 0;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  ::selection {
+    background: #bef27833;
+    color: #eaf0f3;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+  input:-webkit-autofill {
+    -webkit-text-fill-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0 100px var(--card) inset;
+  }
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #32414b;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+.login-grid {
+  background-image:
+    linear-gradient(#4a5b6520 1px, transparent 1px),
+    linear-gradient(90deg, #4a5b6520 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(130deg, #0008, transparent 80%);
+}
+.illustration-view {
+  background-image:
+    linear-gradient(#a1bd7d0b 1px, transparent 1px),
+    linear-gradient(90deg, #a1bd7d0b 1px, transparent 1px),
+    radial-gradient(ellipse at center, #a1bd7d12, #0d1815 80%);
+  background-size:
+    24px 24px,
+    24px 24px,
+    100% 100%;
+}
+.stream-stage {
+  background: #080c0f;
+}
+.stream-stage:fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+}
+.stream-stage:fullscreen img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

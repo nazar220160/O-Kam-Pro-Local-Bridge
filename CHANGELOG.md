@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.0
+
+- Replace the legacy browser scripts with a responsive Next.js and TypeScript dashboard using shadcn/ui, TanStack Query and Axios. Keep the existing camera, source, control, publication, metadata and archive APIs.
+- Build a reproducible static frontend from the npm lockfile in Docker and continue serving it through the private nginx gateway. Node.js is not part of the production runtime; existing Compose ports and persistent state remain compatible.
+- Generate exact CSP hashes for exported inline scripts, cache fingerprinted Next.js assets and add dedicated frontend type, lint, behavior and production-build checks.
+
 ## 0.11.1
 
 - Enable bridge ONVIF/RTSP for cloud-only cameras without requiring a camera LAN IP. Infer new cloud publication addresses from the dashboard/request host, trusting forwarded headers only from the authenticated gateway.
