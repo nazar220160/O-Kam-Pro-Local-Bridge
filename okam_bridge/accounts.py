@@ -214,6 +214,7 @@ class Record:
     quality: str | None = None
     wanted: bool = False
     cached_config: dict | None = field(default=None, repr=False)
+    settings_lock: object = field(default_factory=threading.RLock, repr=False)
 
 
 class AccountWorkspace:
@@ -327,9 +328,60 @@ class AccountWorkspace:
                         "lens_metadata": live.get("lens_metadata", []),
                         "viewers": live.get("viewers", 0),
                         "last_frame": live.get("last_frame"),
+                        "connections": live.get("connections", 0),
                     }
                 )
             return result
+
+    def apply_stream(self, camera_id, ip=None, substream=1, quality=None):
+        if quality is not None and (
+            not isinstance(quality, str) or quality not in ("high", "medium", "low")
+        ):
+            raise WorkspaceError("invalid_quality")
+        if type(substream) is not int or substream not in (0, 1, 2):
+            raise WorkspaceError("invalid_stream")
+        if ip:
+            ip = private_ipv4(ip)
+        with self.lock:
+            if self.closed:
+                raise WorkspaceError("session_expired")
+            record = self.records[camera_id]
+        with record.settings_lock:
+            with self.lock:
+                camera = self.cameras.get(camera_id)
+                live = bool(
+                    camera and record.instance is camera and record.phase == "ready"
+                )
+                unchanged_route = (
+                    ip is None or ip == record.ip
+                ) and substream == record.substream
+                generation = record.generation
+                previous = record.quality
+            if not live or not unchanged_route:
+                self.connect(camera_id, ip, substream, quality)
+                return {"ok": True, "mode": "reconnect", "state": "preparing"}
+            if quality != previous and quality is not None:
+                try:
+                    result = camera.control("quality", {"quality": quality})
+                except ControlError as error:
+                    raise WorkspaceError(str(error)) from None
+                if result.get("state") not in ("confirmed", "sent", "response"):
+                    raise WorkspaceError("camera_control_failed")
+            with self.lock:
+                if (
+                    self.closed
+                    or record.instance is not camera
+                    or record.generation != generation
+                ):
+                    raise WorkspaceError("camera_not_streaming")
+                with camera.lock:
+                    if quality is None:
+                        camera.config.pop("quality", None)
+                    else:
+                        camera.config["quality"] = quality
+                    record.cached_config = dict(camera.config)
+                record.quality = quality
+            return {"ok": True, "mode": "live", "state": "streaming"}
 
     def connect(self, camera_id, ip=None, substream=1, quality=None):
         if quality is not None and (

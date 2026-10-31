@@ -597,7 +597,25 @@ $("connect").onclick = async () => {
     renderDetails();
   }
 };
-$("apply-stream").onclick = () => $("connect").click();
+$("apply-stream").onclick = async () => {
+  if (!S.selected) return;
+  const id = S.selected, epoch = S.epoch;
+  $("apply-stream").disabled = $("connect").disabled = true;
+  try {
+    const result = await api("/api/cameras/" + encodeURIComponent(id) + "/stream", "POST", {
+      ip: $("camera-ip").value.trim() || null,
+      substream: Number($("substream").value),
+      quality: $("quality").value || null,
+    });
+    if (S.epoch !== epoch || S.selected !== id) return;
+    await fetchCatalog();
+    toast(result.mode === "live" ? "Качество применено без переподключения." : "Подключаемся с новыми параметрами потока…");
+  } catch (error) {
+    if (S.epoch === epoch && S.selected === id) toast(friendly(error.code));
+  } finally {
+    if (S.epoch === epoch && S.selected === id) renderDetails();
+  }
+};
 $("disconnect").onclick = async () => {
   if (!S.selected) return;
   stopFeeds();

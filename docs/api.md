@@ -1,4 +1,4 @@
-# HTTP API · v0.10.0
+# HTTP API · v0.10.1
 
 The Python API is independent of the dashboard. With Compose, use `http://localhost:8080` for both the dashboard and proxied API. For a native process started with `python -m okam_bridge api --port 8098`, use `http://localhost:8098`.
 
@@ -123,3 +123,10 @@ All routes require the owning account cookie or Bearer session; browser-player c
 - `POST /api/cameras/{id}/archive` with `{"action":"replay","token":"RECORDING_TOKEN"}` returns a credential-free RTSP URI for normal forward clip replay. Use the publication credentials displayed in the dashboard in the player.
 
 The full constraints and lifecycle are described in [bridge exports](bridge-exports.md#server-and-sd-archives). SD cache and server files are separate sources in metadata, but both are exposed to ONVIF Recording/Search/Replay once complete. Recording settings are bridge storage policy; they do not change the camera SD recording configuration.
+
+
+## Live quality switching
+
+`POST /api/cameras/{camera_id}/stream` accepts the same `ip`, `substream` and `quality` preferences as connect. When the camera is connected and its IP/substream are unchanged, it sends the native `camera_control.cgi?param=16` command through the current serialized session and returns `mode: live`. The camera/publication is retained and the preference is persisted. All lenses share the native quality. A brief encoder/keyframe transition can occur; the UI does not perform a fresh login or transport handshake.
+
+Changing IP/substream, or applying settings to a disconnected camera, returns `mode: reconnect` and starts the usual asynchronous connection. Explicit `/connect` remains a full reconnect. Null quality leaves the current native quality untouched and clears its restart override.

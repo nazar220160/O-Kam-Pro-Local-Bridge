@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "O-Kam Pro Local Bridge API",
-    "version": "0.10.0",
+    "version": "0.10.1",
     "license": {
       "name": "MIT"
     },
@@ -1366,6 +1366,159 @@
                       "low"
                     ],
                     "description": "Native quality command: high=1, medium=2, low=4. Null leaves existing quality untouched."
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cameras/{camera_id}/stream": {
+      "post": {
+        "summary": "Apply native stream preferences; change quality without reconnecting",
+        "operationId": "post_api_cameras_camera_id_stream",
+        "tags": [
+          "Cameras"
+        ],
+        "description": "On an already connected camera with unchanged IP/substream, applies native quality over the serialized existing session and persists it without replacing the camera or publication. A changed IP/substream or disconnected camera starts asynchronous connection instead. Response mode is live or reconnect. Null clears the saved override without changing the current native quality. Native quality is shared by all lenses; a brief keyframe/encoder transition is possible.",
+        "parameters": [
+          {
+            "name": "camera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ID returned by the current account catalog."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request failed; JSON error is a stable machine-readable code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionBearer": []
+          },
+          {
+            "accountCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ip": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "substream": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "default": 1
+                  },
+                  "quality": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      null,
+                      "high",
+                      "medium",
+                      "low"
+                    ]
                   }
                 },
                 "required": [],
@@ -3637,6 +3790,7 @@
               "preset",
               "guard",
               "volume",
+              "quality",
               "image",
               "zoom",
               "light",
@@ -3746,6 +3900,13 @@
       "value": [
         0,
         31
+      ]
+    },
+    "quality": {
+      "quality": [
+        "high",
+        "medium",
+        "low"
       ]
     },
     "image": {

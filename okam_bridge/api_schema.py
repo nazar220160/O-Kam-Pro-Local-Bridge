@@ -43,6 +43,7 @@ ACTIONS = {
     "preset": {"operation": ["save", "goto", "delete"], "slot": [1, 5]},
     "guard": {"slot": [0, 5]},
     "volume": {"channel": ["microphone", "speaker"], "value": [0, 31]},
+    "quality": {"quality": ["high", "medium", "low"]},
     "image": {
         "field": ["brightness", "contrast", "orientation", "night"],
         "value": [0, 255],
@@ -259,6 +260,22 @@ def openapi():
         ),
         status="202",
         description="Asynchronous. Poll camera state until viewable=true or error. Multiple lenses share one physical connection. LAN/routed reachability is required; this API does not add cloud relay transport.",
+    )
+    operation(
+        "/api/cameras/{camera_id}/stream",
+        "post",
+        "Apply native stream preferences; change quality without reconnecting",
+        body(
+            {
+                "ip": {"type": ["string", "null"]},
+                "substream": {"type": "integer", "enum": [0, 1, 2], "default": 1},
+                "quality": {
+                    "type": ["string", "null"],
+                    "enum": [None, "high", "medium", "low"],
+                },
+            }
+        ),
+        description="On an already connected camera with unchanged IP/substream, applies native quality over the serialized existing session and persists it without replacing the camera or publication. A changed IP/substream or disconnected camera starts asynchronous connection instead. Response mode is live or reconnect. Null clears the saved override without changing the current native quality. Native quality is shared by all lenses; a brief keyframe/encoder transition is possible.",
     )
     operation(
         "/api/cameras/{camera_id}/disconnect",

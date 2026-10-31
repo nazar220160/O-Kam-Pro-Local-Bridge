@@ -471,6 +471,16 @@ class AppHandler(Handler):
                             parts[2], data.get("action"), data.get("args")
                         ),
                     )
+                if parts[3] == "stream":
+                    return self._json(
+                        200,
+                        workspace.apply_stream(
+                            parts[2],
+                            data.get("ip") or None,
+                            data.get("substream", 1),
+                            data.get("quality"),
+                        ),
+                    )
                 if parts[3] == "connect":
                     workspace.connect(
                         parts[2],

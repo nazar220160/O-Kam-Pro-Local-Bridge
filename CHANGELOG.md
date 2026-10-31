@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.1
+
+- Apply native quality changes over the existing serialized camera session. Preserve the connection, camera object, publication ID/password and persisted preferences. IP/substream changes and explicit reconnect retain their prior behavior.
+- Keep browser feeds open when applying quality; document the live stream-preference endpoint.
+
+
 ## 0.10.0
 
 - Persist account sessions, encrypted vendor credentials, native connection settings, camera IP/quality and publication IDs/passwords in an atomic AES-256-GCM state volume.

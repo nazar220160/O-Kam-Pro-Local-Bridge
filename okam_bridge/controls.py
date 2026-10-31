@@ -268,6 +268,13 @@ def build_action(action, args=None):
         param = 24 if channel == "microphone" else 25
         path = f"camera_control.cgi?param={param}&value={value}&"
         expected = 0x6012
+    elif action == "quality":
+        quality = a.get("quality")
+        values = {"high": 1, "medium": 2, "low": 4}
+        if not isinstance(quality, str) or quality not in values:
+            raise ControlError("invalid_quality")
+        path = f"camera_control.cgi?param=16&value={values[quality]}&"
+        expected = 0x6012
     elif action == "image":
         field = a.get("field")
         spec = {
