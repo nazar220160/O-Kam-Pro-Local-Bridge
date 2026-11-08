@@ -573,7 +573,8 @@ class ExportManager:
             "onvif_port": self.onvif_port,
             "rtsp": True,
             "onvif": entry.onvif,
-            "ptz": bool(status.get("metadata", {}).get("motor")),
+            "ptz": status.get("protocol") != "VP/CPPPP2"
+            and bool(status.get("metadata", {}).get("motor")),
             "audio": dict(status.get("audio", {})),
             "events": bool(entry.onvif),
             "recording": bool(entry.onvif),

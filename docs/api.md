@@ -1,4 +1,4 @@
-# HTTP API · v0.12.0
+# HTTP API · v0.12.1
 
 The Python API is independent of the dashboard. With Compose, use `http://localhost:8080` for both the dashboard and proxied API. For a native process started with `python -m okam_bridge api --port 8098`, use `http://localhost:8098`.
 
@@ -74,7 +74,7 @@ curl -b session.cookies -H 'Content-Type: application/json' \
   http://localhost:8080/api/cameras/CAMERA_ID/connect
 ```
 
-The catalog reports the selected `connection_mode`; `transport.mode` and `transport.path` describe the transport, with `path: relay` only after a relay connection is established. The status does not expose relay endpoint addresses or transport credentials. Source selection is saved for restart recovery. Relay negotiation may take about a minute, with up to 100 seconds allowed for the first frame; availability depends on the camera, firmware, vendor service and both networks. VP transport is unsupported.
+The catalog reports the selected `connection_mode` and camera `protocol`. `transport.path` reports `relay` or `relay-tcp` after the relay connection is established. Source selection is saved for restart recovery. The first frame can take up to 100 seconds. Compatible VP cameras support H.264 through `cloud` mode. VP audio, SD retrieval and native write actions other than quality selection are unavailable.
 
 The `substream` selector accepts `0`, `1` or `2`. The independent `quality` selector accepts `high`, `medium`, `low` or `null`; null leaves camera quality unchanged. Native quality codes are 1, 2 and 4 respectively.
 

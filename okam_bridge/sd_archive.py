@@ -160,6 +160,8 @@ class SDSession:
         self._heartbeat = time.monotonic()
 
     def __enter__(self):
+        if self.config.get("protocol") == "vp":
+            raise CS2Error("sd_archive_unavailable")
         self.session = connect_camera(self.config)
         try:
             authenticate(self.session, self.config)

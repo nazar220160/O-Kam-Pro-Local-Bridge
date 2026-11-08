@@ -1,9 +1,11 @@
+from dataclasses import replace
 import threading
 import time
 import unittest
 from unittest.mock import Mock, patch
 
 from okam_bridge.accounts import AccountManager, LANBackend, WorkspaceError
+from okam_bridge.vendor.p2p import P2PError
 from test_workspace import FakeBackend, FakeCamera, FakeClient
 
 
@@ -50,6 +52,35 @@ class CloudWorkspaceTests(unittest.TestCase):
         self.assertEqual(self.record.ip, "192.168.20.10")
         self.assertEqual(self.workspace.catalog()[0]["connection_mode"], "cloud")
         self.assertNotIn("native-secret", str(self.workspace.catalog()))
+
+    def test_unrecognized_legacy_uid_can_use_validated_vp_relay(self):
+        self.record.device = replace(self.record.device, security="a" * 32)
+        self.record.account_token = "fixture-token"
+        self.record.connection_mode = "cloud"
+        backend = LANBackend("ffmpeg")
+        with (
+            patch("okam_bridge.accounts.resolve_client_id", side_effect=P2PError),
+            patch("okam_bridge.accounts.resolve_vp_device") as resolve,
+            patch.object(backend.decoder, "decode", return_value="fixture-native"),
+            patch("okam_bridge.accounts.discover_lan") as discover,
+        ):
+            resolve.return_value.native_connection_input.return_value = "fixture%%DAS"
+            config = backend.prepare(self.record, "123456789", None, 1)
+            discover.assert_not_called()
+        self.assertEqual(config["protocol"], "vp")
+        self.assertEqual(config["vp_connection"], "fixture%%DAS")
+        self.assertEqual(config["account_token"], "fixture-token")
+        self.assertNotIn("ip", config)
+
+    def test_vp_lan_request_does_not_stop_existing_relay(self):
+        self.record.cached_config = {"protocol": "vp"}
+        self.record.connection_mode = "cloud"
+        camera = Mock()
+        self.record.instance = camera
+        with self.assertRaisesRegex(WorkspaceError, "vp_requires_cloud"):
+            self.workspace.connect(self.cid, connection_mode="lan")
+        self.assertEqual(self.record.connection_mode, "cloud")
+        camera.stop.assert_not_called()
 
     def test_invalid_mode_cannot_replace_connection_or_saved_preferences(self):
         for mode in ("direct", None, {}, True):

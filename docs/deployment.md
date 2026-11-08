@@ -2,7 +2,7 @@
 
 ## Docker Compose on Linux
 
-Prerequisites: Docker Engine, Docker Compose, a compatible CS2/PPPP camera, and an O-Kam account with access to it. Local mode requires private-network reachability. Optional O-Kam Pro relay mode requires internet at both the bridge and camera. Vendor services must be reachable for account login and transport bootstrap; relay video also depends on those services.
+Prerequisites: Docker Engine, Docker Compose, a compatible CS2/PPPP or VP camera, and an O-Kam account with access to it. Local mode requires private-network reachability. O-Kam Pro relay mode requires internet at both the bridge and camera. Vendor services must be reachable for account login, transport bootstrap and relay video.
 
 Encrypted account-issued camera credentials are decoded in-process using the supported securityPwd protocol. No official-client executable, credentials mount or manual file download is required.
 
@@ -132,9 +132,9 @@ On macOS, the API continues to handle physical-camera UDP natively, preserving t
 
 ## Local or O-Kam Pro relay source
 
-In the dashboard, **Открыть видео** connects over LAN; **Через O-Kam Pro** next to it uses the vendor relay. Each camera remembers its selected source across restart. Relay mode does not use or discover the camera LAN IP, so cameras on separate networks can be attempted from one server without adding a VPN to those sites. This does not guarantee remote availability: the camera must be online through the vendor service and use the supported CS2/PPPP transport. VP is not implemented.
+In the dashboard, choose **Локально** for a CS2 LAN connection or **O-Kam Pro** for the vendor relay. Each camera remembers its selected source across restart. Compatible VP cameras use O-Kam Pro mode for H.264 video. The bridge resolves the camera through the vendor directory, so the relay route works across separate networks when both endpoints can reach the vendor service.
 
-Relay setup uses the camera UID and vendor directory on UDP 32100, followed by a dynamically allocated relay endpoint/port. Permit outbound UDP and its return traffic; opening only a fixed camera LAN port is insufficient. There is no fixed relay IP to enter in the camera-IP field. The initial handshake may take about a minute. Native camera authentication and account authorization remain in use. Failed relay attempts report an error rather than silently using a local connection.
+CS2 relay setup uses the vendor directory on UDP 32100 and a dynamically allocated relay endpoint. VP uses UDP 65200 for discovery, TCP 65526 for TCP relay and UDP 65000 plus the allocated port for UDP relay. Allow the required outbound traffic and replies. Enter a LAN IP only when using local mode. The initial connection may take about a minute and uses the camera credentials and account authorization.
 
 Switching the source reconnects the shared camera session for all lenses and viewers. Enabled bridge publications resume against that source with the same ID/password and NVR URLs. Applying only quality keeps the current local or relay session.
 
@@ -146,7 +146,7 @@ Switching the source reconnects the shared camera session for all lenses and vie
 | `encrypted_credentials_invalid` | Refresh the account catalog and reconnect; the account record may be stale or use an unsupported credential variant. |
 | `credential_key_not_found` | Only relevant to an explicitly supplied legacy client-file override; remove the override for the built-in protocol. |
 | No LAN reply | Camera private IPv4, host routing, firewall and UDP transport reachability. |
-| Relay connection fails | Internet at the bridge/camera, vendor availability, outbound UDP/return traffic and CS2 compatibility. A LAN IP cannot repair a failed relay rendezvous. |
+| Relay connection fails | Internet access at the bridge and camera, vendor availability, firewall policy and protocol compatibility. |
 | No video | Correct native credentials, compatible transport, FFmpeg, camera state and selected lens. |
 | Open native service port but no RTSP/ONVIF login | TCP availability is not protocol or credential verification. |
 

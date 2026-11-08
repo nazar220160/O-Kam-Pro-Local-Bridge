@@ -26,17 +26,11 @@ from .transport import (
     start_audio,
     CameraAuthError,
     CameraStartError,
-    make_request,
+    is_vp_session,
+    keep_camera_alive,
     read_lens_frame,
 )
-from .vendor.cs2 import (
-    CS2Error,
-    read_video_frame,
-    write_command,
-    make_cgi_request,
-    read_command_result,
-    LOGIN_RESPONSE_COMMAND,
-)
+from .vendor.cs2 import CS2Error
 
 
 class Subscription:
@@ -291,6 +285,11 @@ class Camera:
                 or self.state not in ("streaming", "connecting")
             ):
                 raise ControlError("camera_not_streaming")
+            if is_vp_session(self.session) and command["action"] not in (
+                "query",
+                "quality",
+            ):
+                raise ControlError("vp_control_unsupported")
         job = ControlJob(command)
         try:
             self.control_queue.put_nowait(job)
@@ -380,6 +379,9 @@ class Camera:
                 "lenses": sorted(self.observed_lenses),
                 "last_frame": self.last_frame,
                 "connections": self.connections,
+                "protocol": (
+                    "VP/CPPPP2" if self.config.get("protocol") == "vp" else "CS2/PPPP"
+                ),
                 "transport": {
                     "mode": self.config.get("connection_mode", "lan"),
                     "path": getattr(self.session, "connect_path", None),
@@ -502,6 +504,7 @@ class Camera:
                 self.session = session
                 if self.stop_event.is_set():
                     break
+                vp = is_vp_session(session)
                 user, password = authenticate(session, self.config)
                 with self.lock:
                     self.metadata = dict(getattr(session, "camera_metadata", {}))
@@ -527,8 +530,10 @@ class Camera:
                     self.config.get("compatibility_password"),
                     account_id=self.config.get("account_id"),
                 )
-                if self.metadata.get("audio_g711") and self.metadata.get(
-                    "microphone", True
+                if (
+                    not vp
+                    and self.metadata.get("audio_g711")
+                    and self.metadata.get("microphone", True)
                 ):
                     try:
                         start_audio(
@@ -541,7 +546,11 @@ class Camera:
                     except (CS2Error, OSError):
                         pass  # Audio rejection must not prevent video.
                 if self.config.get("quality") is not None:
-                    set_video_quality(session, self.config, self.config["quality"])
+                    try:
+                        set_video_quality(session, self.config, self.config["quality"])
+                    except (CS2Error, OSError):
+                        if not vp:
+                            raise
                 with self.lock:
                     self.connections += 1
                     self.last_error = None
@@ -552,10 +561,11 @@ class Camera:
                         break
                     data, frame_type, lens = read_lens_frame(session, timeout=10)
                     if frame_type == 12:
-                        with self.lock:
-                            self.audio_available = True
-                            self.audio_frames += 1
-                            self.audio_hub.publish(data)
+                        if not vp:
+                            with self.lock:
+                                self.audio_available = True
+                                self.audio_frames += 1
+                                self.audio_hub.publish(data)
                         continue
                     if not re.search(rb"\x00\x00(?:\x00)?\x01[\x01-\x7f]", data):
                         continue
@@ -606,19 +616,7 @@ class Camera:
                         decoder.write(initial if initial is not None else data)
                     backoff = 1
                     if time.monotonic() - keepalive > 10:
-                        write_command(
-                            session,
-                            make_request(
-                                "get_status.cgi?name=admin&",
-                                user,
-                                password,
-                                self.config.get("compatibility_password"),
-                                account_id=self.config.get("account_id"),
-                            ),
-                        )
-                        read_command_result(
-                            session, (LOGIN_RESPONSE_COMMAND,), timeout=1
-                        )
+                        keep_camera_alive(session, self.config, user, password)
                         keepalive = time.monotonic()
             except CameraStartError as error:
                 with self.lock:
@@ -626,13 +624,20 @@ class Camera:
             except CameraAuthError:
                 with self.lock:
                     self.last_error = "camera_password_rejected"
-            except (CS2Error, OSError, ValueError):
+            except (CS2Error, OSError, ValueError) as error:
                 with self.lock:
-                    self.last_error = (
-                        "cloud_unavailable_or_video_interrupted"
-                        if self.config.get("connection_mode") == "cloud"
-                        else "camera_unavailable_or_video_interrupted"
-                    )
+                    if self.config.get("protocol") == "vp" and str(error) in (
+                        "vp_configuration_invalid",
+                        "unsupported_video_codec",
+                        "vp_requires_cloud",
+                    ):
+                        self.last_error = str(error)
+                    else:
+                        self.last_error = (
+                            "cloud_unavailable_or_video_interrupted"
+                            if self.config.get("connection_mode") == "cloud"
+                            else "camera_unavailable_or_video_interrupted"
+                        )
             finally:
                 if session:
                     session.close()
@@ -667,7 +672,10 @@ class Camera:
                 for h in m.hubs.values():
                     h.close()
         self._clear_decoders()
-        if self.session:
-            self.session.close()
+        session = self.session
+        # VP close sends a final command. The worker owns its socket and
+        # observes stop_event during reads, so it can tear down in order.
+        if session and not is_vp_session(session):
+            session.close()
         if self.thread:
             self.thread.join(timeout=15)

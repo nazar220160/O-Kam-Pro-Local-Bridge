@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.1
+
+- Resolve compatible VP/CPPPP2 cameras through the VP directory and play their H.264 lenses through O-Kam Pro relay mode. The existing video, quality and bridge publication paths handle both protocols.
+- Report directory and VP compatibility errors separately so the dashboard can explain which connection option is available.
+
 ## 0.12.0
 
 - Replace the legacy browser scripts with a responsive Next.js and TypeScript dashboard using shadcn/ui, TanStack Query and Axios. Keep the existing camera, source, control, publication, metadata and archive APIs.

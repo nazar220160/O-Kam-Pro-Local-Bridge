@@ -2,11 +2,11 @@
 
 **Your cameras. Your network. Your API.**
 
-[![Version 0.12.0](https://img.shields.io/badge/version-0.12.0-95d75d)](CHANGELOG.md)
+[![Version 0.12.1](https://img.shields.io/badge/version-0.12.1-95d75d)](CHANGELOG.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![API reference](https://img.shields.io/badge/API-OpenAPI_3.1-527ac9)](docs/api.md)
 
-A self-hosted dashboard and HTTP API for compatible O-Kam Pro cameras using the CS2/PPPP protocol. View video over your LAN or the vendor relay, switch lenses, move PTZ cameras, inspect metadata and send validated native controls from one interface.
+A self-hosted dashboard and HTTP API for compatible O-Kam Pro cameras using CS2/PPPP or VP/CPPPP2. View video over your LAN or the vendor relay, switch lenses, inspect metadata and control supported cameras from one interface.
 
 [Quick start](#quick-start) · [Deployment](docs/deployment.md) · [API](docs/api.md) · [Bridge exports](docs/bridge-exports.md) · [Security](SECURITY.md) · [Русский](README.ru.md)
 
@@ -24,9 +24,9 @@ A self-hosted dashboard and HTTP API for compatible O-Kam Pro cameras using the 
 - Encrypted persistent sessions and automatic camera/publication/recording restoration after restart.
 - Separate Python API and frontend, with a documented OpenAPI contract. Docker builds the Next.js static export and serves it through nginx.
 
-**Compatibility matters:** this bridge supports the CS2/PPPP transport family, not every camera sold under the O-Kam name. Local mode needs LAN or routed private reachability. The optional O-Kam Pro mode uses the vendor UDP relay and needs internet access at the bridge and camera; availability depends on vendor services, firmware and network policy. It does not silently fall back to LAN. Account login and transport bootstrap contact vendor services in both modes.
+CS2/PPPP cameras can use LAN or O-Kam Pro relay mode. Compatible VP/CPPPP2 cameras use O-Kam Pro relay mode with H.264 video, metadata, quality selection and bridge publication. The VP adapter currently covers DAS records without a checksum field. VP audio, PTZ, other camera setting changes and SD-card retrieval remain unavailable. Relay mode needs internet access at the bridge and camera. Account login and transport bootstrap contact vendor services in both modes.
 
-Compatible G.711 A-law camera audio is received and published as AAC alongside live RTSP video. Two-way talk and VP transport are not implemented. Bridge publication copies H.264 without encoding through the separate MediaMTX service (TCP 8554 by default); the optional ONVIF endpoint uses port 8899 and authenticated snapshots. WS-Discovery works only where multicast is reachable. ONVIF supports bounded continuous pan/tilt, native presets, observed status events, recording search and forward clip replay. Absolute PTZ positions, reverse playback and RTSP clock seeking are unsupported; ONVIF certification is not claimed. [Set up bridge exports](docs/bridge-exports.md).
+Compatible CS2 cameras supply G.711 A-law audio, which the bridge publishes as AAC. Bridge publication copies H.264 without encoding through MediaMTX (TCP 8554 by default). The optional ONVIF endpoint uses port 8899 and authenticated snapshots. WS-Discovery requires multicast reachability. ONVIF supports recording search and forward clip replay. Compatible CS2 cameras also expose bounded pan/tilt, presets and observed status events. Two-way talk, absolute PTZ positions, reverse playback and RTSP clock seeking are unavailable. [Set up bridge exports](docs/bridge-exports.md).
 
 Native camera capability flags do not prove that an RTSP or ONVIF daemon is running. Independent native service toggles remain unverified and disabled; bridge publication does not change the camera’s native ONVIF/RTSP settings.
 

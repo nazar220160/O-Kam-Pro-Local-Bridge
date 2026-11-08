@@ -176,6 +176,12 @@ const messages: Record<string, string> = {
   camera_password_rejected:
     "Камера отклонила данные входа. Обновите список камер.",
   unsupported_protocol: "Транспорт этой камеры пока не поддерживается.",
+  camera_directory_unavailable:
+    "Каталог O-Kam Pro не вернул параметры подключения. Повторите попытку позже.",
+  vp_requires_cloud: "Для этой VP-камеры выберите источник O-Kam Pro.",
+  vp_configuration_invalid: "Мост не смог прочитать параметры VP-камеры.",
+  unsupported_video_codec: "Мост пока не поддерживает видеокодек этой камеры.",
+  vp_control_unsupported: "Эта команда пока недоступна для VP-камер.",
   native_credentials_unavailable:
     "Аккаунт не предоставил данные для подключения к камере.",
   encrypted_credentials_invalid:

@@ -115,7 +115,7 @@ export function ConnectionToolbar({
               camera.connection_mode === "lan" &&
                 "bg-secondary text-foreground shadow-sm",
             )}
-            disabled={busy}
+            disabled={busy || camera.protocol === "VP/CPPPP2"}
             onClick={() => connect.mutate("lan")}
           >
             <Network className="size-3.5" /> Локально

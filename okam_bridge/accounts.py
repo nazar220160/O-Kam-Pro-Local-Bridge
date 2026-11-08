@@ -8,7 +8,13 @@ import re
 import threading
 import time
 from .vendor.account import Eye4AccountClient, AccountDevice, AccountError
-from .vendor.p2p import resolve_client_id, get_service_parameter, valid_vp_security
+from .vendor.p2p import (
+    P2PError,
+    get_service_parameter,
+    resolve_client_id,
+    resolve_vp_device,
+    valid_vp_security,
+)
 from .transport import discover_lan, CS2Error
 from .camera import Camera
 from .credentials import CredentialDecoder, CredentialError
@@ -167,17 +173,42 @@ class LANBackend:
         self.ffmpeg = ffmpeg
         self.decoder = CredentialDecoder(credential_client)
 
+    @staticmethod
+    def _transport_settings(record):
+        # Keep the established CS2 path for devices the legacy directory knows.
+        # Encrypted credentials alone do not distinguish VP from CS2.
+        if (record.cached_config or {}).get("protocol") != "vp":
+            try:
+                uid = resolve_client_id(record.device.uid)
+                if len(uid) == 15:
+                    return {
+                        "transport_uid": uid,
+                        "service_parameter": get_service_parameter(uid),
+                    }
+            except P2PError:
+                if not valid_vp_security(record.device.security):
+                    raise WorkspaceError("camera_directory_unavailable") from None
+            else:
+                if not valid_vp_security(record.device.security):
+                    raise WorkspaceError("unsupported_protocol")
+        try:
+            resolution = resolve_vp_device(record.device.uid)
+            connection = resolution.native_connection_input()
+        except P2PError:
+            raise WorkspaceError("camera_directory_unavailable") from None
+        if record.connection_mode != "cloud":
+            raise WorkspaceError("vp_requires_cloud")
+        if not record.account_token:
+            raise WorkspaceError("native_credentials_unavailable")
+        return {"protocol": "vp", "vp_connection": connection}
+
     def prepare(self, record, account_id, ip, substream):
-        uid = resolve_client_id(record.device.uid)
-        if len(uid) != 15:
-            raise WorkspaceError("unsupported_protocol")
-        parameter = get_service_parameter(uid)
+        transport = self._transport_settings(record)
         password, encrypted = native_credentials(record, account_id, self.decoder)
         config = {
             "id": record.id,
             "name": record.device.name,
-            "transport_uid": uid,
-            "service_parameter": parameter,
+            **transport,
             "account_id": account_id,
             "username": "admin",
             "password": password,
@@ -185,7 +216,7 @@ class LANBackend:
             "ports": [32108, 32100],
             "substream": substream,
         }
-        if encrypted:
+        if encrypted or transport.get("protocol") == "vp":
             config["account_token"] = record.account_token
         config["connection_mode"] = record.connection_mode
         if record.connection_mode == "cloud":
@@ -196,7 +227,9 @@ class LANBackend:
         if known_ip:
             config["ip"] = private_ipv4(known_ip)
         else:
-            config["ip"] = discover_lan(uid, parameter, timeout=6)["ip"]
+            config["ip"] = discover_lan(
+                config["transport_uid"], config["service_parameter"], timeout=6
+            )["ip"]
         return config
 
     def camera(self, config):
@@ -330,7 +363,8 @@ class AccountWorkspace:
                                 else "native_credentials_required"
                             )
                         ),
-                        "protocol": "CS2/PPPP" if r.instance else None,
+                        "protocol": live.get("protocol")
+                        or ("CS2/PPPP" if r.instance else None),
                         "lenses": live.get("lenses", []),
                         "metadata": live.get("metadata", {}),
                         "lens_metadata": live.get("lens_metadata", []),
@@ -417,6 +451,11 @@ class AccountWorkspace:
             if camera_id not in self.records:
                 raise KeyError(camera_id)
             r = self.records[camera_id]
+            if (
+                connection_mode == "lan"
+                and (r.cached_config or {}).get("protocol") == "vp"
+            ):
+                raise WorkspaceError("vp_requires_cloud")
             if r.phase in ("preparing", "resolving", "discovering", "starting"):
                 raise WorkspaceError("connection_in_progress")
             old = r.instance
@@ -495,6 +534,10 @@ class AccountWorkspace:
         # Codes here are internal constants, not raw URLs/vendor responses.
         allowed = {
             "unsupported_protocol",
+            "camera_directory_unavailable",
+            "vp_requires_cloud",
+            "vp_configuration_invalid",
+            "unsupported_video_codec",
             "native_credentials_unavailable",
             "video_unavailable",
             "no_lan_reply",
@@ -519,6 +562,8 @@ class AccountWorkspace:
             if not self.closed and r.generation == generation:
                 r.phase = "error"
                 r.error = error
+                if error == "vp_requires_cloud":
+                    r.wanted = False
 
     def inspect(self, camera_id):
         with self.lock:

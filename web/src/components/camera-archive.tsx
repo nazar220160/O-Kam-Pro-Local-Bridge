@@ -122,6 +122,7 @@ function ArchivePanel({ camera }: { camera: Camera }) {
   }, []);
   const data = archive.data;
   const exported = !!publication.data?.enabled;
+  const sdSupported = camera.protocol !== "VP/CPPPP2";
   const policy: PolicyDraft = draft ?? {
     segment: String(data?.workers?.[0]?.segment_seconds ?? 60),
     retention: String(data?.storage.retention_days ?? 7),
@@ -196,7 +197,7 @@ function ArchivePanel({ camera }: { camera: Camera }) {
   const sdRecords = useQuery({
     queryKey: ["sd-records", camera.id, sdDay],
     queryFn: () => api.sdRecords(camera.id, sdDay),
-    enabled: !!sdDay && camera.viewable && exported,
+    enabled: !!sdDay && camera.viewable && exported && sdSupported,
     staleTime: 0,
     refetchOnWindowFocus: false,
     retry: false,
@@ -281,6 +282,7 @@ function ArchivePanel({ camera }: { camera: Camera }) {
     });
   }
   function importClip(record: SDRecord) {
+    if (!sdSupported) return;
     const duration = Number(importDuration);
     if (!Number.isInteger(duration) || duration < 1 || duration > 300) {
       toast.error("Длительность фрагмента — от 1 до 300 секунд.");
@@ -769,6 +771,7 @@ function ArchivePanel({ camera }: { camera: Camera }) {
               variant="outline"
               size="sm"
               disabled={
+                !sdSupported ||
                 !camera.viewable ||
                 !exported ||
                 sdDates.isPending ||
@@ -785,8 +788,9 @@ function ArchivePanel({ camera }: { camera: Camera }) {
             </Button>
           </div>
           <CardDescription>
-            Запросите даты на карте и выберите фрагмент для загрузки в архив
-            моста.
+            {sdSupported
+              ? "Запросите даты на карте и выберите фрагмент для загрузки в архив моста."
+              : "Чтение SD-карты этой VP-камеры пока недоступно. Запись на сервер доступна выше."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -806,6 +810,7 @@ function ArchivePanel({ camera }: { camera: Camera }) {
                 className={selectClass}
                 disabled={
                   !sdDays.length ||
+                  !sdSupported ||
                   sdDates.isPending ||
                   sdRecords.isFetching ||
                   !camera.viewable ||

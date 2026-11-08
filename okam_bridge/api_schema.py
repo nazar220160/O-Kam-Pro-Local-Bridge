@@ -480,7 +480,7 @@ def openapi():
             "title": "O-Kam Pro Local Bridge API",
             "version": __version__,
             "license": {"name": "MIT"},
-            "description": "Independent camera bridge with LAN and optional O-Kam CS2 relay video. Camera/firmware support varies; account login, bootstrap and cloud mode use vendor services.",
+            "description": "Independent camera bridge with CS2 LAN video and O-Kam relay video for compatible CS2 and VP cameras. Account login, transport bootstrap and cloud mode use vendor services.",
         },
         "servers": [{"url": "/"}],
         "tags": [{"name": t} for t in ("System", "Account", "Cameras", "Media")],

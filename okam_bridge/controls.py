@@ -6,7 +6,7 @@ import struct
 import threading
 import time
 from urllib.parse import parse_qsl, urlencode, quote
-from .transport import make_request, response_result
+from .transport import is_vp_session, make_request, response_result
 from .vendor.cs2 import CS2Error
 
 
@@ -396,6 +396,8 @@ class ControlJob:
 
 def read_control(session, timeout):
     """Peek whole channel-0 messages; a partial reply survives a timeout."""
+    if is_vp_session(session):
+        return session.read_control(timeout)
     deadline = time.monotonic() + timeout
     while True:
         buffer = session._channel_buffers[0]
@@ -413,6 +415,8 @@ def read_control(session, timeout):
 
 
 def _send(session, config, path, timeout=1):
+    if is_vp_session(session):
+        return session.request(path, timeout=timeout)
     request = make_request(
         path,
         config.get("username", "admin"),

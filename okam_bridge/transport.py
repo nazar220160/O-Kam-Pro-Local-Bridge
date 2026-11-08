@@ -1,4 +1,4 @@
-"""Encrypted CS2/PPPP sessions over LAN or the vendor's cloud relay."""
+"""Camera commands and media over CS2 or VP sessions."""
 
 import socket
 import time
@@ -11,11 +11,11 @@ from .vendor.cs2 import (
     encrypt_packet,
     decrypt_packet,
     write_command,
-    make_cgi_request,
     read_command_result,
     LOGIN_RESPONSE_COMMAND,
     LIVE_STREAM_RESPONSE_COMMANDS,
 )
+from .vp_transport import connect_vp
 
 
 class LANSession(CS2Session):
@@ -143,12 +143,18 @@ def connect_cloud(camera, timeout=55.0, cancel=None):
 
 
 def connect_camera(camera, cancel=None):
+    if camera.get("protocol") == "vp":
+        return connect_vp(camera, cancel=cancel)
     mode = camera.get("connection_mode", "lan")
     if mode == "lan":
         return connect_lan(camera)
     if mode == "cloud":
         return connect_cloud(camera, cancel=cancel)
     raise ValueError("Invalid camera connection mode")
+
+
+def is_vp_session(session):
+    return getattr(session, "protocol", None) == "vp"
 
 
 def make_request(path, user, password, compatibility_password=None, account_id=None):
@@ -199,6 +205,8 @@ def read_reply(session, commands, timeout=10):
 
 
 def authenticate(session, camera):
+    if is_vp_session(session):
+        return session.authenticate()
     user = camera.get("username", "admin")
     password = camera["password"]
     write_command(
@@ -226,6 +234,8 @@ def authenticate(session, camera):
 
 def authorize_account(session, camera):
     """Firmware requiring account-token validation before live video."""
+    if is_vp_session(session):
+        return session.authorize_account()
     token = camera.get("account_token")
     if not token:
         return
@@ -263,10 +273,13 @@ def set_video_quality(session, camera, quality):
     values = {"high": 1, "medium": 2, "low": 4}
     if not isinstance(quality, str) or quality not in values:
         raise ValueError("Invalid video quality")
+    path = f"camera_control.cgi?param=16&value={values[quality]}&"
+    if is_vp_session(session):
+        return session.request(path, timeout=2)
     write_command(
         session,
         make_request(
-            f"camera_control.cgi?param=16&value={values[quality]}&",
+            path,
             camera.get("username", "admin"),
             camera["password"],
             camera.get("compatibility_password"),
@@ -278,6 +291,8 @@ def set_video_quality(session, camera, quality):
 def start_video(
     session, user, password, substream=1, compatibility_password=None, account_id=None
 ):
+    if is_vp_session(session):
+        return session.start_video(substream)
     write_command(
         session,
         make_request(
@@ -311,6 +326,8 @@ def start_audio(session, user, password, compatibility_password=None, account_id
 
 
 def read_lens_frame(session, timeout=10):
+    if is_vp_session(session):
+        return session.read_lens_frame(timeout=timeout)
     from .vendor.cs2 import MAX_FRAME_BYTES
 
     header = session.read_exact(1, 32, timeout=timeout)
@@ -322,6 +339,29 @@ def read_lens_frame(session, timeout=10):
         raise CS2Error("camera video frame metadata is invalid")
     session.last_video_header = header
     return session.read_exact(1, size, timeout=timeout), header[4], lens
+
+
+def keep_camera_alive(session, camera, user, password):
+    path = "get_status.cgi?name=admin&"
+    if is_vp_session(session):
+        session.request(path, timeout=2)
+        deadline = time.monotonic() + 1
+        while (remaining := deadline - time.monotonic()) > 0:
+            reply = session.read_control(remaining)
+            if reply is None or reply[0] == LOGIN_RESPONSE_COMMAND:
+                break
+        return
+    write_command(
+        session,
+        make_request(
+            path,
+            user,
+            password,
+            camera.get("compatibility_password"),
+            account_id=camera.get("account_id"),
+        ),
+    )
+    read_command_result(session, (LOGIN_RESPONSE_COMMAND,), timeout=1)
 
 
 def discover_lan(uid, service_parameter, timeout=6, targets=None, ports=None):

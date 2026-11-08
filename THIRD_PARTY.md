@@ -7,6 +7,7 @@ Files in `okam_bridge/vendor/` derive from [shymonke/okam-ha-native](https://git
 - `account.py` — vendor account access.
 - `p2p.py` — transport bootstrap and UID resolution.
 - `cs2.py` — CS2/PPPP transport and video handling, adapted here with reliability changes.
+- `vp.py`, `vp_handshake.py`, `vp_wire.py`, `vp_session.py`, `vp_commands.py` — VP/CPPPP2 framing and session support from the same MIT snapshot, adapted for relay-only cloud connections and cancellation.
 
 These files are inherited and may carry local adaptations; they are not claimed to be an unchanged upstream snapshot. The original MIT copyright and license notice is preserved in [okam_bridge/vendor/LICENSE](okam_bridge/vendor/LICENSE). The local/relay transport adapter, API, CLI and dashboard are maintained in this project. The optional relay mode reuses this inherited CS2 session implementation; its handshake was also cross-checked with [oleandor/okam-ha-native](https://github.com/oleandor/okam-ha-native/blob/main/src/okam_native/cs2.py) and its [amd64 transport report](https://github.com/oleandor/okam-ha-native/blob/main/docs/amd64-development-handoff.md).
 

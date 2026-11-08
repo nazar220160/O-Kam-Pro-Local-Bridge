@@ -699,10 +699,9 @@ function CameraWorkspace({
     {
       label: "Подключение",
       value: transportLabel(camera),
-      note:
-        camera.transport.path === "relay"
-          ? "Через ретранслятор"
-          : camera.ip || "IP определяется автоматически",
+      note: ["relay", "relay-tcp"].includes(camera.transport.path || "")
+        ? "Через ретранслятор"
+        : camera.ip || "IP определяется автоматически",
       icon: camera.connection_mode === "cloud" ? Cloud : Network,
     },
     {
@@ -801,12 +800,21 @@ function CameraWorkspace({
           <CameraVideo camera={camera} />
           <p className="mt-4 flex items-start gap-2 text-[10px] leading-5 text-muted-foreground/60">
             <Info className="mt-1 size-3 shrink-0" />
-            Предпросмотр в браузере · до 960 px и 5 кадров/с. Полное качество и
-            звук доступны в RTSP-потоке.
+            Предпросмотр в браузере · до 960 px и 5 кадров/с.{" "}
+            {camera.protocol === "VP/CPPPP2"
+              ? "Полное видео доступно через RTSP."
+              : "Полное качество и звук доступны в RTSP-потоке."}
           </p>
         </TabsContent>
         <TabsContent value="controls">
-          <CameraControls camera={camera} />
+          {camera.protocol === "VP/CPPPP2" ? (
+            <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+              Для VP-камер качество видео можно менять во вкладке «Прямой эфир».
+              PTZ и другие команды настройки пока недоступны.
+            </p>
+          ) : (
+            <CameraControls camera={camera} />
+          )}
         </TabsContent>
         <TabsContent value="exports">
           <BridgeExports camera={camera} />
